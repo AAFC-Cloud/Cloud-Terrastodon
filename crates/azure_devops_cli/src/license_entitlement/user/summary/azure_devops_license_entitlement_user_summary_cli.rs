@@ -32,7 +32,7 @@ impl AzureDevOpsLicenseEntitlementUserSummaryArgs {
         }
         .execute(executor)
         .await?;
-        let rows = summarize_licenses(entitlements.iter().map(|entitlement| &entitlement.license));
+        let rows = summarize_licenses(entitlements.iter().map(|entitlement| entitlement.license()));
         let total_users: usize = rows.iter().map(|row| row.count).sum();
         let total_monthly_cost_cad: f64 = rows.iter().map(|row| row.total_cost_cad).sum();
 
@@ -47,12 +47,12 @@ impl AzureDevOpsLicenseEntitlementUserSummaryArgs {
         ))
     }
 }
-fn summarize_licenses<'a>(
-    licenses: impl IntoIterator<Item = &'a AzureDevOpsLicenseType>,
+fn summarize_licenses(
+    licenses: impl IntoIterator<Item = AzureDevOpsLicenseType>,
 ) -> Vec<AzureDevOpsLicenseSummaryRow> {
     let mut counts: HashMap<AzureDevOpsLicenseType, usize> = HashMap::new();
     for license in licenses {
-        *counts.entry(license.clone()).or_insert(0) += 1;
+        *counts.entry(license).or_insert(0) += 1;
     }
 
     let mut rows = counts
@@ -96,7 +96,7 @@ mod tests {
             AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Express),
         ];
 
-        let rows = summarize_licenses(licenses.iter());
+        let rows = summarize_licenses(licenses);
 
         assert_eq!(rows.len(), 3);
         assert_eq!(
@@ -120,7 +120,7 @@ mod tests {
         let account = AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Professional);
         let msdn = AzureDevOpsLicenseType::Msdn(AzureDevOpsMsdnLicenseType::Professional);
         let licenses = [account.clone(), msdn.clone(), account.clone()];
-        let rows = summarize_licenses(licenses.iter());
+        let rows = summarize_licenses(licenses);
 
         assert_eq!(rows.len(), 2);
         assert_eq!(

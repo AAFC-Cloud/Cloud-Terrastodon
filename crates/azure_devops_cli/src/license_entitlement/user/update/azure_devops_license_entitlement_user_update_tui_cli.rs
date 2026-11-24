@@ -44,7 +44,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
                         .map(|e| Choice {
                             key: format!(
                                 "{} <{}> ({})",
-                                e.user.display_name, e.user.unique_name, e.user.id
+                                e.user.display_name, e.user.principal_name, e.id
                             ),
                             value: e,
                         })
@@ -63,13 +63,13 @@ impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
             let resp = AzureDevOpsUserLicenseEntitlementUpdateRequest {
                 org_url: Cow::Borrowed(&self.org),
                 auth_selection,
-                user: (entitlement.user_id).into(),
+                user: entitlement.id.into(),
                 license_kind: (license.clone()),
             }
             .execute(executor)
             .await?;
             info!(
-                %entitlement.user_id,
+                user_id = %entitlement.id,
                 %license,
                 ?resp,
                 "Successfully updated license entitlement for user"

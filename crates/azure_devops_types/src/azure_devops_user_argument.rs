@@ -1,4 +1,3 @@
-use crate::AzureDevOpsLicenseEntitlementUserReference;
 use crate::AzureDevOpsUserId;
 use crate::AzureDevOpsUserLicenseEntitlement;
 use arbitrary::Arbitrary;
@@ -46,7 +45,7 @@ impl<'a> From<&'a AzureDevOpsUserArgument<'a>> for AzureDevOpsUserArgument<'a> {
 
 impl AzureDevOpsUserArgument<'_> {
     pub fn as_predicate<'a>(&'a self) -> eyre::Result<Box<AzureDevOpsUserPredicate<'a>>> {
-        Ok(Box::new(move |e| self.matches(&e.user)))
+        Ok(Box::new(move |entitlement| self.matches(entitlement)))
     }
 
     pub fn into_owned(self) -> AzureDevOpsUserArgument<'static> {
@@ -60,12 +59,13 @@ impl AzureDevOpsUserArgument<'_> {
         }
     }
 
-    pub fn matches(&self, user: &AzureDevOpsLicenseEntitlementUserReference) -> bool {
+    pub fn matches(&self, entitlement: &AzureDevOpsUserLicenseEntitlement) -> bool {
         match self {
-            AzureDevOpsUserArgument::Id(id) => &user.id == id.as_ref(),
-            AzureDevOpsUserArgument::Email(email) => {
-                user.unique_name.eq_ignore_ascii_case(email.as_ref())
-            }
+            AzureDevOpsUserArgument::Id(id) => &entitlement.id == id.as_ref(),
+            AzureDevOpsUserArgument::Email(email) => entitlement
+                .user
+                .principal_name
+                .eq_ignore_ascii_case(email.as_ref()),
         }
     }
 }

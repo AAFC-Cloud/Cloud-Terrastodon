@@ -16,7 +16,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 /// Selects one user's license entitlement from the organization inventory.
-/// See [User Entitlements](https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/list?view=azure-devops-rest-7.1).
+/// See [Search User Entitlements](https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/search-user-entitlements?view=azure-devops-rest-7.1).
 #[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
@@ -77,7 +77,7 @@ impl<'a> ExecutableRequest for AzureDevOpsUserLicenseEntitlementShowRequest<'a> 
 
             match entitlements
                 .into_iter()
-                .find(|license_entitlement| self.user.matches(&license_entitlement.user))
+                .find(|license_entitlement| self.user.matches(license_entitlement))
             {
                 Some(found) => Ok(found),
                 None => {

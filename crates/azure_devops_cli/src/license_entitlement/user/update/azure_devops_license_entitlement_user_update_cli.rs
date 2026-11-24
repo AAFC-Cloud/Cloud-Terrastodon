@@ -86,20 +86,20 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                         continue;
                     }
                 } {
-                    match entitlement.license {
-                        ref x if *x == self.license => {
+                    match entitlement.license() {
+                        license if license == self.license => {
                             info!(
                                 %user,
-                                license = %x,
+                                %license,
                                 "User already has desired license, no change needed"
                             );
                             outcomes.push(AzureDevOpsLicenseUpdateOutcome::NoChangeNeeded(user));
                             continue;
                         }
-                        ref x if *x != *expected => {
+                        license if &license != expected => {
                             error!(
                                 %user,
-                                existing = %x,
+                                existing = %license,
                                 %expected,
                                 "User has license that does not match expected, skipping update"
                             );
@@ -111,8 +111,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                             );
                             continue;
                         }
-                        ref x if *x == *expected => Some(entitlement),
-                        _ => unreachable!(),
+                        _ => Some(entitlement),
                     }
                 } else {
                     None
@@ -170,12 +169,13 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
             .with_invalidation(!invalidated)
             .await?;
             invalidated = true;
-            if new_license.license != self.license {
+            let actual_license = new_license.license();
+            if actual_license != self.license {
                 error!(
                     %user,
                     ?was,
                     expected = %self.license,
-                    actual = %new_license.license,
+                    actual = %actual_license,
                     "License entitlement update did not take effect after waiting"
                 );
                 verified_outcomes.push(AzureDevOpsLicenseUpdateOutcome::UpdateDidntTakeEffect {

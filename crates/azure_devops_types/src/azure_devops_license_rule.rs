@@ -41,6 +41,7 @@ impl AzureDevOpsLicenseRule {
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleSource {
+    None,
     Account,
     Msdn,
     Other(String),
@@ -66,6 +67,7 @@ pub enum AzureDevOpsLicenseRuleStatus {
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleAssignmentSource {
+    None,
     Unknown,
     GroupRule,
     Other(String),
@@ -103,10 +105,12 @@ macro_rules! impl_string_backed_enum {
 impl_string_backed_enum!(
     AzureDevOpsLicenseRuleSource,
     {
+        "none" => Self::None,
         "account" => Self::Account,
         "msdn" => Self::Msdn,
     },
     value => match value {
+        AzureDevOpsLicenseRuleSource::None => "none".to_owned(),
         AzureDevOpsLicenseRuleSource::Account => "account".to_owned(),
         AzureDevOpsLicenseRuleSource::Msdn => "msdn".to_owned(),
         AzureDevOpsLicenseRuleSource::Other(value) => value.clone(),
@@ -138,10 +142,12 @@ impl_string_backed_enum!(
 impl_string_backed_enum!(
     AzureDevOpsLicenseRuleAssignmentSource,
     {
+        "none" => Self::None,
         "unknown" => Self::Unknown,
         "groupRule" => Self::GroupRule,
     },
     value => match value {
+        AzureDevOpsLicenseRuleAssignmentSource::None => "none".to_owned(),
         AzureDevOpsLicenseRuleAssignmentSource::Unknown => "unknown".to_owned(),
         AzureDevOpsLicenseRuleAssignmentSource::GroupRule => "groupRule".to_owned(),
         AzureDevOpsLicenseRuleAssignmentSource::Other(value) => value.clone(),

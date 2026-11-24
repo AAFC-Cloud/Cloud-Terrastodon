@@ -96,9 +96,7 @@ impl<'a> ExecutableRequest for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a
                     .execute(&executor);
                     listing.invalidate().await?;
                     let users = listing.await?;
-                    let mut matches = users
-                        .into_iter()
-                        .filter(|entry| self.user.matches(&entry.user));
+                    let mut matches = users.into_iter().filter(|entry| self.user.matches(entry));
                     let user = matches
                         .next()
                         .ok_or_else(|| eyre::eyre!("no entitlement matches the selected user"))?;
@@ -106,7 +104,7 @@ impl<'a> ExecutableRequest for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a
                         matches.next().is_none(),
                         "the user selection matches multiple entitlements"
                     );
-                    user.user_id
+                    user.id
                 }
             };
             let patch = AzureDevOpsJsonPatch::new(vec![AzureDevOpsJsonPatchOperation::Replace {

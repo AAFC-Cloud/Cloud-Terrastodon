@@ -25,7 +25,7 @@ pub async fn get_azure_devops_user_onboarding_statuses<T: AsRef<str>>(
     .await?;
     let existing_users = entitlements
         .iter()
-        .map(|user| user.user.unique_name.as_str())
+        .map(|user| user.user.principal_name.as_str())
         .collect::<HashSet<_>>();
 
     let mut rtn = Vec::new();

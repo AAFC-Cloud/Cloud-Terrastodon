@@ -2,6 +2,7 @@ use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsUserLicenseEntitlement;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsUserLicenseEntitlementPage;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_cache::HasCacheKey;
@@ -11,13 +12,17 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_rest::MicrosoftContinuationToken;
 use cloud_terrastodon_rest::RestRequest;
+use eyre::WrapErr;
+use eyre::ensure;
 use facet::Facet;
 use reqwest::Method;
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::debug;
 
+/// List user licenses with the [7.1 Search User Entitlements API](https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/search-user-entitlements?view=azure-devops-rest-7.1).
 #[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsUserLicenseEntitlementListRequest<'a> {
@@ -69,22 +74,15 @@ impl<'a> ExecutableRequest for AzureDevOpsUserLicenseEntitlementListRequest<'a> 
     {
         Box::pin(async move {
             debug!("Fetching Azure DevOps user entitlements");
-            #[derive(Facet)]
-            #[facet(rename_all = "camelCase")]
-            struct InvokeResponse {
-                count: u32,
-                value: Vec<Arc<AzureDevOpsUserLicenseEntitlement>>,
-            }
-
             let mut entitlements = Vec::new();
             let mut continuation: Option<MicrosoftContinuationToken> = None;
-            let mut count = 0;
+            let mut seen = HashSet::new();
             let cache_key = self.cache_key()?;
             let mut page_index = 0;
             loop {
-                let mut query = vec![("api-version", "7.1-preview.3")];
-                if let Some(token) = continuation.as_ref() {
-                    query.push(("continuationToken", token.as_str()));
+                let mut query = vec![("api-version", "7.1"), ("select", "license")];
+                if let Some(token) = continuation.as_deref() {
+                    query.push(("continuationToken", token));
                 }
                 let url = self.org_url.api_url(
                     "vsaex.dev.azure.com",
@@ -94,24 +92,38 @@ impl<'a> ExecutableRequest for AzureDevOpsUserLicenseEntitlementListRequest<'a> 
                 let request = RestRequest::from_method_and_url(Method::GET, url)?
                     .cache(cache_key.join(page_index.to_string())?)
                     .authentication(self.auth_selection.into());
-                let (response, next_continuation) = request
-                    .receive_with_ms_continuation_token_cached::<InvokeResponse>(
+                let page = request
+                    .receive_cached::<AzureDevOpsUserLicenseEntitlementPage>(
                         &executor,
                         CacheOperationOwner::of::<
                             AzureDevOpsUserLicenseEntitlementListRequest<'static>,
                         >(),
                     )
                     .await?;
-                count += response.count;
-                entitlements.extend(response.value.iter().cloned());
-                continuation = next_continuation;
-                page_index += 1;
-                if continuation.is_none() {
+                executor.cancellation().bail_if_cancelled()?;
+                entitlements.extend(page.items.iter().cloned());
+                // The response body can use an empty token to end pagination.
+                let Some(token) = page
+                    .continuation_token
+                    .as_deref()
+                    .filter(|token| !token.is_empty())
+                else {
                     break;
-                }
+                };
+                let token = MicrosoftContinuationToken::try_from(token)
+                    .wrap_err("validating the Azure DevOps user entitlement continuation token")?;
+                ensure!(
+                    seen.insert(token.clone()),
+                    "Azure DevOps returned a repeated user entitlement continuation token"
+                );
+                continuation = Some(token);
+                page_index += 1;
             }
 
-            debug!("Found {count} Azure DevOps user entitlements");
+            debug!(
+                count = entitlements.len(),
+                "Found Azure DevOps user entitlements"
+            );
             Ok(entitlements)
         })
     }

@@ -1,146 +1,54 @@
-use crate::AzureDevOpsDescriptor;
+use crate::AzureDevOpsAccountLicenseType;
+use crate::AzureDevOpsLicenseEntitlementUserReference;
+use crate::AzureDevOpsLicenseRule;
+use crate::AzureDevOpsLicenseRuleSource;
 use crate::AzureDevOpsLicenseType;
-use crate::azure_devops_account_id::AzureDevOpsAccountId;
-use crate::azure_devops_user_id::AzureDevOpsUserId;
+use crate::AzureDevOpsUserId;
+use crate::LastAccessedDate;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use cloud_terrastodon_azure_types::ArbitraryJson;
 use facet::Facet;
-use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
-#[facet(rename_all = "lowercase")]
-#[repr(C)]
-pub enum AzureDevOpsLicenseEntitlementStatus {
-    Active,
-    Pending,
-    Disabled,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
-#[facet(rename_all = "lowercase")]
-#[repr(C)]
-pub enum AzureDevOpsLicenseEntitlementOrigin {
-    None,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
-#[facet(rename_all = "camelCase")]
-#[repr(C)]
-pub enum AzureDevOpsLicenseAssignmentSource {
-    Unknown,
-    GroupRule,
-}
-
+/// User entitlement returned by the [Azure DevOps 7.1 license search](https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/search-user-entitlements?view=azure-devops-rest-7.1#userentitlement).
 #[derive(Debug, Clone, Facet, Arbitrary)]
+#[facet(rename_all = "camelCase")]
+#[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsUserLicenseEntitlement {
-    #[facet(rename = "accountId")]
-    pub account_id: AzureDevOpsAccountId,
-    #[facet(rename = "assignmentDate")]
-    pub assignment_date: DateTime<Utc>,
-    #[facet(rename = "assignmentSource")]
-    pub assignment_source: AzureDevOpsLicenseAssignmentSource,
-    #[facet(rename = "dateCreated")]
-    pub date_created: DateTime<Utc>,
-    #[facet(rename = "lastAccessedDate")]
-    pub last_accessed_date: LastAccessedDate,
-    #[facet(rename = "lastUpdated")]
-    pub last_updated: DateTime<Utc>,
-    #[facet(rename = "license")]
-    pub license: AzureDevOpsLicenseType,
-    #[facet(rename = "origin")]
-    pub origin: AzureDevOpsLicenseEntitlementOrigin,
-    #[facet(rename = "status")]
-    pub status: AzureDevOpsLicenseEntitlementStatus,
-    #[facet(rename = "user")]
-    pub user: AzureDevOpsLicenseEntitlementUserReference,
-    #[facet(rename = "userId")]
-    pub user_id: AzureDevOpsUserId,
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Facet, Arbitrary)]
-#[facet(proxy = String)]
-#[repr(C)]
-pub enum LastAccessedDate {
-    Some(DateTime<Utc>),
-    Never,
-}
-
-impl FromStr for LastAccessedDate {
-    type Err = chrono::ParseError;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        if value == "0001-01-01T00:00:00+00:00" {
-            return Ok(LastAccessedDate::Never);
-        }
-
-        Ok(LastAccessedDate::Some(
-            DateTime::parse_from_rfc3339(value)?.with_timezone(&Utc),
-        ))
-    }
-}
-
-impl From<&LastAccessedDate> for String {
-    fn from(value: &LastAccessedDate) -> Self {
-        match value {
-            LastAccessedDate::Some(dt) => dt.to_rfc3339(),
-            LastAccessedDate::Never => "0001-01-01T00:00:00+00:00".to_owned(),
-        }
-    }
-}
-
-impl TryFrom<String> for LastAccessedDate {
-    type Error = chrono::ParseError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
-    }
-}
-
-#[derive(Debug, Clone, Arbitrary, Facet)]
-pub struct AzureDevOpsLicenseEntitlementUserReference {
-    #[facet(rename = "descriptor")]
-    pub descriptor: AzureDevOpsDescriptor,
-    #[facet(rename = "displayName")]
-    pub display_name: String,
-    #[facet(rename = "id")]
     pub id: AzureDevOpsUserId,
-    #[facet(rename = "imageUrl")]
-    pub image_url: String,
-    #[facet(rename = "uniqueName")]
-    pub unique_name: String,
-    #[facet(rename = "url")]
-    pub url: String,
+    pub access_level: AzureDevOpsLicenseRule,
+    /// The documented single-user response can omit the creation date.
+    pub date_created: Option<DateTime<Utc>>,
+    pub last_accessed_date: LastAccessedDate,
+    pub user: AzureDevOpsLicenseEntitlementUserReference,
+    // License-only searches do not request these sections. Preserve them as
+    // opaque data when present, including the empty arrays Azure can return.
+    pub extensions: Option<Vec<ArbitraryJson>>,
+    pub group_assignments: Option<Vec<ArbitraryJson>>,
+    pub project_entitlements: Option<Vec<ArbitraryJson>>,
+}
+
+impl AzureDevOpsUserLicenseEntitlement {
+    /// Resolve the effective license using only the family's active source.
+    pub fn license(&self) -> AzureDevOpsLicenseType {
+        match &self.access_level.licensing_source {
+            AzureDevOpsLicenseRuleSource::None => {
+                AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::None)
+            }
+            AzureDevOpsLicenseRuleSource::Account => {
+                AzureDevOpsLicenseType::Account(self.access_level.account_license_type.clone())
+            }
+            AzureDevOpsLicenseRuleSource::Msdn => {
+                AzureDevOpsLicenseType::Msdn(self.access_level.msdn_license_type.clone())
+            }
+            AzureDevOpsLicenseRuleSource::Other(source) => AzureDevOpsLicenseType::Other(format!(
+                "{source}: {}",
+                self.access_level.license_display_name
+            )),
+        }
+    }
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsUserLicenseEntitlement);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsUserLicenseEntitlement);
-
-#[cfg(test)]
-mod test {
-    use crate::azure_devops_user_license_entitlement;
-    use chrono::DateTime;
-    use chrono::Utc;
-
-    #[test]
-    pub fn it_works() -> eyre::Result<()> {
-        let x = facet_json::from_str::<super::LastAccessedDate>(r#""0001-01-01T00:00:00+00:00""#)?;
-        assert_eq!(
-            x,
-            azure_devops_user_license_entitlement::LastAccessedDate::Never
-        );
-        Ok(())
-    }
-
-    #[test]
-    pub fn it_works2() -> eyre::Result<()> {
-        let x = facet_json::from_str::<super::LastAccessedDate>(r#""2023-10-05T12:34:56+00:00""#)?;
-        assert_eq!(
-            x,
-            azure_devops_user_license_entitlement::LastAccessedDate::Some(
-                "2023-10-05T12:34:56+00:00".parse::<DateTime<Utc>>()?
-            )
-        );
-        Ok(())
-    }
-}

@@ -7,7 +7,7 @@ use cloud_terrastodon_azure::EntraUserArgument;
 use cloud_terrastodon_azure::EntraUserGetRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsAccountLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsGroupLicenseEntitlementsRequest;
-use cloud_terrastodon_azure_devops::AzureDevOpsLicenseAssignmentSource;
+use cloud_terrastodon_azure_devops::AzureDevOpsLicenseRuleAssignmentSource;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsMsdnLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
@@ -19,6 +19,7 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
+use eyre::ensure;
 use facet::Facet;
 use std::borrow::Cow;
 use tracing::debug;
@@ -49,34 +50,40 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
         .execute(executor)
         .await?;
 
-        let user_entitlement = entitlements
-            .into_iter()
-            .find(|e| user_predicate(e))
+        let mut matches = entitlements.into_iter().filter(|e| user_predicate(e));
+        let user_entitlement = matches
+            .next()
             .wrap_err_with(|| format!("No license entitlement found matching {self:?}"))?;
+        ensure!(
+            matches.next().is_none(),
+            "Multiple license entitlements match {}",
+            self.user,
+        );
 
         debug!(?user_entitlement, "Found entitlement");
-        let user_principal_name = &user_entitlement.user.unique_name;
+        let license = user_entitlement.license();
 
         if matches!(
-            &user_entitlement.license,
+            &license,
             AzureDevOpsLicenseType::Account(
                 AzureDevOpsAccountLicenseType::Stakeholder | AzureDevOpsAccountLicenseType::None,
             ) | AzureDevOpsLicenseType::Msdn(AzureDevOpsMsdnLicenseType::None)
         ) {
             info!(
-                user_devops_id = %user_entitlement.user_id,
+                user_devops_id = %user_entitlement.id,
                 user_display_name = %user_entitlement.user.display_name,
-                user_devops_license = ?user_entitlement.license,
+                user_devops_license = ?license,
                 "User does not have a premium license, skipping revocation"
             );
             return Ok(CliOutput::none());
         }
 
-        if user_entitlement.assignment_source == AzureDevOpsLicenseAssignmentSource::GroupRule {
+        let assignment_source = &user_entitlement.access_level.assignment_source;
+        if *assignment_source == AzureDevOpsLicenseRuleAssignmentSource::GroupRule {
             // Membership listings can expose only object IDs. Resolve the selected
             // user once, rather than interpreting an unavailable UPN as absence.
             let entra_user_id = EntraUserGetRequest {
-                lookup: (EntraUserArgument::try_from(user_principal_name.as_str())?),
+                lookup: EntraUserArgument::try_from(user_entitlement.user.principal_name.as_str())?,
                 authentication,
             }
             .execute(executor)
@@ -98,7 +105,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
             for group_license_entitlement in group_entitlements.iter() {
                 let matches = group_license_entitlement
                     .license_rule
-                    .matches_license(&user_entitlement.license);
+                    .matches_license(&license);
                 debug!(
                     group_display_name = %group_license_entitlement.group.display_name,
                     group_origin_id = %group_license_entitlement.group.origin_id,
@@ -136,9 +143,9 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
 
                 if user_in_group {
                     info!(
-                        user_devops_id = %user_entitlement.user_id,
+                        user_devops_id = %user_entitlement.id,
                         user_display_name = %user_entitlement.user.display_name,
-                        user_devops_license = ?user_entitlement.license,
+                        user_devops_license = ?license,
                         group_display_name = %group_license_entitlement.group.display_name,
                         group_origin_id = %group_license_entitlement.group.origin_id,
                         "User is granted license via this group - removing the user from this group to revoke the license"
@@ -168,11 +175,16 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                 }
             }
         } else {
-            // Direct assignment - just downgrade the license
+            // The documented add-user example reports `unknown` for a direct assignment.
+            // Keep the change confined to the selected user's own license.
+            ensure!(
+                *assignment_source == AzureDevOpsLicenseRuleAssignmentSource::Unknown,
+                "Cannot revoke a license with assignment source {assignment_source:?}",
+            );
             AzureDevOpsUserLicenseEntitlementUpdateRequest {
                 org_url: Cow::Borrowed(&self.org),
                 auth_selection: authentication.into(),
-                user: (user_entitlement.user_id).into(),
+                user: user_entitlement.id.into(),
                 license_kind: (AzureDevOpsLicenseType::Account(
                     AzureDevOpsAccountLicenseType::Stakeholder,
                 )),

@@ -65,53 +65,58 @@ pub async fn audit_azure_devops(
         .map(|user| (user.user_principal_name.to_lowercase(), user))
         .collect::<HashMap<_, _>>();
 
-    // Emit a warning for anyone who has not recently accessed azure devops and have greater than stakeholder license
-    for entitlement in entitlements
-        .iter()
-        .filter(|e| {
-            e.license != AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Stakeholder)
-        })
-        .filter(|e| {
-            e.assignment_date.max(e.date_created).max(e.last_updated)
-                < Utc::now() - paid_license_inactivity_threshold
-        })
-    {
+    // Search User Entitlements reports account creation and last access.
+    // Inactivity checks need a known creation date to give new accounts their grace period.
+    let paid_license_cutoff = Utc::now() - paid_license_inactivity_threshold;
+    for entitlement in entitlements.iter().filter(|entitlement| {
+        entitlement
+            .date_created
+            .is_some_and(|date| date < paid_license_cutoff)
+    }) {
+        let license = entitlement.license();
+        if matches!(
+            &license,
+            AzureDevOpsLicenseType::Account(
+                AzureDevOpsAccountLicenseType::None | AzureDevOpsAccountLicenseType::Stakeholder
+            )
+        ) {
+            continue;
+        }
+        let cost_per_month_cad = license.cost_per_month_cad();
         match entitlement.last_accessed_date {
             LastAccessedDate::Never => {
                 let msg = "User has never accessed Azure DevOps but has a paid license; consider downgrading license";
                 warn!(
                     user_display_name = %entitlement.user.display_name,
-                    user_unique_name = %entitlement.user.unique_name,
-                    license = %entitlement.license,
-                    status = ?entitlement.status,
-                    cost_per_month_cad = %entitlement.license.cost_per_month_cad(),
+                    user_principal_name = %entitlement.user.principal_name,
+                    %license,
+                    status = ?entitlement.access_level.status,
+                    %cost_per_month_cad,
                     "{}", msg
                 );
                 total_problems += 1;
-                total_cost_waste_cad += entitlement.license.cost_per_month_cad();
+                total_cost_waste_cad += cost_per_month_cad;
                 *message_counts.entry(msg.to_string()).or_insert(0) += 1;
             }
-            LastAccessedDate::Some(date)
-                if date < Utc::now() - paid_license_inactivity_threshold =>
-            {
+            LastAccessedDate::Some(date) if date < paid_license_cutoff => {
                 let msg = format!(
                     "User has not accessed Azure DevOps in the last {} days but has a paid license; consider downgrading license",
                     paid_license_inactivity_threshold.num_days()
                 );
                 warn!(
                     user_display_name = %entitlement.user.display_name,
-                    user_unique_name = %entitlement.user.unique_name,
+                    user_principal_name = %entitlement.user.principal_name,
                     last_accessed_date = %date.to_rfc3339(),
                     last_accessed_ago = format_duration_human(Utc::now() - date)?,
                     last_accessed_ago_fr = format_duration_human_fr(Utc::now() - date)?,
                     last_accessed_ago_days = ((Utc::now() - date).num_days()),
-                    license = %entitlement.license,
-                    status = ?entitlement.status,
-                    cost_per_month_cad = %entitlement.license.cost_per_month_cad(),
+                    %license,
+                    status = ?entitlement.access_level.status,
+                    %cost_per_month_cad,
                     "{}", msg
                 );
                 total_problems += 1;
-                total_cost_waste_cad += entitlement.license.cost_per_month_cad();
+                total_cost_waste_cad += cost_per_month_cad;
                 *message_counts.entry(msg).or_insert(0) += 1;
             }
             _ => {}
@@ -123,19 +128,23 @@ pub async fn audit_azure_devops(
         .iter()
         .filter(|e| matches!(e.user.descriptor, AzureDevOpsDescriptor::EntraUser(_)))
     {
-        if !users_by_principal_name.contains_key(&entitlement.user.unique_name.to_lowercase()) {
+        if !users_by_principal_name
+            .contains_key(&entitlement.user.principal_name.as_str().to_lowercase())
+        {
             let msg = "Azure DevOps entitlement exists for user that no longer exists in Entra ID; consider removing this orphaned entitlement to save costs";
+            let license = entitlement.license();
+            let cost_per_month_cad = license.cost_per_month_cad();
             warn!(
                 user_display_name = %entitlement.user.display_name,
-                user_unique_name = %entitlement.user.unique_name,
+                user_principal_name = %entitlement.user.principal_name,
                 user_descriptor = %entitlement.user.descriptor,
-                license = %entitlement.license,
-                status = ?entitlement.status,
-                cost_per_month_cad = %entitlement.license.cost_per_month_cad(),
+                %license,
+                status = ?entitlement.access_level.status,
+                %cost_per_month_cad,
                 "{}", msg
             );
             total_problems += 1;
-            total_cost_waste_cad += entitlement.license.cost_per_month_cad();
+            total_cost_waste_cad += cost_per_month_cad;
             *message_counts.entry(msg.to_string()).or_insert(0) += 1;
         }
     }
@@ -144,14 +153,16 @@ pub async fn audit_azure_devops(
     // blocker TODO: create entra helper to cleanly map between user and admin accounts
 
     // Identify unused test plan license assignments.
+    let test_plan_license =
+        AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Advanced);
+    let test_license_cutoff = Utc::now() - test_license_inactivity_threshold;
     let test_plan_licenses = entitlements
         .iter()
-        .filter(|e| {
-            e.license == AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Advanced)
-        })
-        .filter(|e| {
-            e.assignment_date.max(e.date_created).max(e.last_updated)
-                < Utc::now() - test_license_inactivity_threshold
+        .filter(|entitlement| {
+            entitlement.access_level.matches_license(&test_plan_license)
+                && entitlement
+                    .date_created
+                    .is_some_and(|date| date < test_license_cutoff)
         })
         .collect_vec();
     info!(
@@ -324,7 +335,7 @@ pub async fn audit_azure_devops(
             let msg = "User has an Advanced license for Test Plans but has not used any test plans; consider downgrading license";
             warn!(
                 user_display_name = %test_plan_entitlement.user.display_name,
-                user_unique_name = %test_plan_entitlement.user.unique_name,
+                user_principal_name = %test_plan_entitlement.user.principal_name,
                 last_used = last_used
                     .map(|date| date.to_string())
                     .as_deref()
@@ -338,16 +349,16 @@ pub async fn audit_azure_devops(
                     .as_deref()
                     .unwrap_or("N/A"),
                 last_used_ago_days = last_used.map(|date| (Utc::now() - date).num_days()),
-                license = %test_plan_entitlement.license,
-                status = ?test_plan_entitlement.status,
-                cost_per_month_cad = %test_plan_entitlement.license.cost_per_month_cad(),
+                license = %test_plan_license,
+                status = ?test_plan_entitlement.access_level.status,
+                cost_per_month_cad = %test_plan_license.cost_per_month_cad(),
                 project_count,
                 test_plan_count,
                 test_suite_count,
                 "{msg}"
             );
             total_problems += 1;
-            total_cost_waste_cad += test_plan_entitlement.license.cost_per_month_cad();
+            total_cost_waste_cad += test_plan_license.cost_per_month_cad();
             *message_counts.entry(msg.to_string()).or_insert(0) += 1;
         }
     }
