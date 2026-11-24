@@ -1,6 +1,7 @@
 //! Install CT's subscriber, destinations, filtering, and terminal policy.
 //!
 //! Reusable capture, retained reports, and presentation live in `teamy-tracing`.
+use crate::figue_default_extraction_terminal_filter::FigueDefaultExtractionTerminalFilter;
 use crate::simple_css_terminal_filter::SimpleCssTerminalFilter;
 use chrono::Local;
 use eyre::Result;
@@ -113,6 +114,7 @@ fn build_subscriber(
     .with_filter(
         stderr_filter
             .and(filter_fn(exclude_tracy_frame_mark))
+            .and(FigueDefaultExtractionTerminalFilter)
             .and(SimpleCssTerminalFilter::default()),
     );
 
@@ -263,7 +265,7 @@ mod tests {
         let path = std::env::temp_dir().join(format!("ct-tracing-{}.ndjson", std::process::id()));
         let _ = std::fs::remove_file(&path);
         let subscriber = build_subscriber(
-            EnvFilter::new("info"),
+            EnvFilter::new("info,figue::schema::from_schema=debug"),
             Some(tracing_subscriber::filter::LevelFilter::DEBUG.into()),
             Some(path.clone()),
             Some(terminal.clone()),
@@ -289,7 +291,13 @@ mod tests {
                 tracing_error::SpanTraceStatus::CAPTURED
             );
             tracing::info!("normal human output");
+            tracing::debug!(target: "figue::schema::from_schema", field = "auth_source",
+                "extract_field_default: successfully extracted default");
+            tracing::debug!(target: "figue::schema::from_schema", field = "test_field",
+                "extract_field_default: failed to serialize default");
             active.store(true, Ordering::Release);
+            tracing::debug!(target: "figue::schema::from_schema", field = "clean",
+                "extract_field_default: successfully extracted default");
             tracing::error!(error = report.as_error(), "guarded human output");
             tracing::debug!("history and file only");
             tracing::info!(tracy.frame_mark = true, "excluded frame mark");
@@ -300,13 +308,16 @@ mod tests {
             panic!("typed report lost")
         };
         assert!(Arc::ptr_eq(&retained.report, &report.report));
-        assert_eq!(human.lock().unwrap().len(), 1);
-        assert!(human.lock().unwrap()[0].contains("normal human output"));
-        assert_eq!(history.records_since(&mut 0).len(), 3);
+        let human = human.lock().unwrap();
+        assert_eq!(human.len(), 2);
+        assert!(human[0].contains("normal human output"));
+        assert!(human[1].contains("failed to serialize default"));
+        assert_eq!(history.records_since(&mut 0).len(), 6);
         let file = std::fs::read_to_string(&path).unwrap();
         assert!(file.contains("normal human output"));
         assert!(file.contains("guarded human output"));
         assert!(file.contains("history and file only"));
+        assert_eq!(file.matches("successfully extracted default").count(), 2);
         assert!(!file.contains("excluded frame mark"));
         assert!(!file.contains("\\u{1b}"));
         std::fs::remove_file(path).unwrap();
