@@ -1,5 +1,6 @@
 use crate::app::MyApp;
 use crate::icons::RESOURCE_GROUP_ICON;
+use crate::inventory_table::show_inventory_result_count;
 use crate::reflected_table::ReflectedTable;
 use crate::reflected_table_column::ReflectedTableColumn;
 use crate::workers::load_resource_groups::load_resource_groups;
@@ -38,7 +39,8 @@ pub fn resource_groups_ui(app: &mut MyApp, ui: &mut Ui) {
                     .with_link("id.subscription_id"),
                 ReflectedTableColumn::new("Location", "location").with_width(132.0),
             ];
-            let table = ReflectedTable::new(("resource-groups", app.account_generation), &columns);
+            let id = Id::new(("resource-groups", app.account_generation));
+            let table = ReflectedTable::new(id, &columns);
             if app
                 .resource_group_browser
                 .filters
@@ -51,11 +53,7 @@ pub fn resource_groups_ui(app: &mut MyApp, ui: &mut Ui) {
                 .filters
                 .filter(groups.values().map(|group| group.as_ref()))
                 .collect();
-            ui.weak(format!(
-                "{} of {} resource groups",
-                rows.len(),
-                groups.len()
-            ));
+            show_inventory_result_count(ui, id, rows.len(), groups.len());
             if rows.is_empty() {
                 ui.label(if groups.is_empty() {
                     "This account has no visible resource groups."
