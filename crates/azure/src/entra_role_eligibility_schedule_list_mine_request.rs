@@ -1,7 +1,7 @@
+use crate::azure_authorization_pages::collect_azure_authorization_pages;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::RoleEligibilitySchedule;
-use cloud_terrastodon_azure_types::RoleEligibilityScheduleListResponse;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_cache::HasCacheKey;
@@ -9,12 +9,12 @@ use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_rest::RestRequest;
-use eyre::Result;
 use facet::Facet;
 use std::path::PathBuf;
 use std::sync::Arc;
+use url::Url;
 
+/// List the caller's [eligible Azure resource roles](https://learn.microsoft.com/rest/api/authorization/role-eligibility-schedules/list-for-scope?view=rest-authorization-2020-10-01).
 #[derive(Arbitrary, Facet)]
 pub struct EntraRoleEligibilityScheduleListMineRequest {
     pub authentication: AzureBearerAuthenticationSelection,
@@ -49,29 +49,29 @@ impl ExecutableRequest for EntraRoleEligibilityScheduleListMineRequest {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            let url = "https://management.azure.com/providers/Microsoft.Authorization/roleEligibilitySchedules?api-version=2020-10-01&$filter=asTarget()";
-
-            let request = RestRequest::new(http::Method::GET, url)?
-                .authentication(self.authentication.into())
-                .cache(self.cache_key()?);
-            let mut result: Result<Arc<RoleEligibilityScheduleListResponse>, _> = request
-                .clone()
-                .receive_cached(
-                    &executor,
-                    CacheOperationOwner::of::<EntraRoleEligibilityScheduleListMineRequest>(),
-                )
-                .await;
-            if result.is_err() {
-                executor.cancellation().bail_if_cancelled()?;
-                // single retry - sometimes this returns a gateway error
-                result = request
-                    .receive_cached(
-                        &executor,
-                        CacheOperationOwner::of::<EntraRoleEligibilityScheduleListMineRequest>(),
-                    )
-                    .await;
+            let mut url = Url::parse(
+                "https://management.azure.com/providers/Microsoft.Authorization/roleEligibilitySchedules",
+            )?;
+            url.query_pairs_mut()
+                .append_pair("api-version", "2020-10-01")
+                .append_pair("$filter", "asTarget()");
+            let key = self.cache_key()?;
+            let owner = CacheOperationOwner::of::<Self>();
+            let first_attempt = collect_azure_authorization_pages(
+                url.clone(),
+                key.clone(),
+                self.authentication,
+                &executor,
+                owner,
+            )
+            .await;
+            if first_attempt.is_ok() {
+                return first_attempt;
             }
-            Ok(result?.value.clone())
+
+            // Retry once for the transient gateway errors seen on this query.
+            executor.cancellation().bail_if_cancelled()?;
+            collect_azure_authorization_pages(url, key, self.authentication, &executor, owner).await
         })
     }
 }

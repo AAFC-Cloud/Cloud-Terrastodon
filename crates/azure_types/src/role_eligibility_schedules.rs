@@ -14,6 +14,7 @@ use uuid::Uuid;
 pub enum RoleEligibilityScheduleMemberType {
     Group,
     Direct,
+    Inherited,
 }
 #[derive(Debug, PartialEq, Facet, Arbitrary)]
 #[repr(C)]
@@ -60,10 +61,17 @@ pub struct RoleEligibilityScheduleExpandedProperties {
     pub scope: RoleEligibilityScheduleExpandedPropertiesScope,
 }
 
+/// Properties of an [Azure role eligibility schedule](https://learn.microsoft.com/rest/api/authorization/role-eligibility-schedules/list-for-scope?view=rest-authorization-2020-10-01#roleeligibilityschedule).
 #[derive(Debug, PartialEq, Facet, Arbitrary)]
+#[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct RoleEligibilityScheduleProperties {
+    pub condition: Option<String>,
+    #[facet(rename = "conditionVersion")]
+    pub condition_version: Option<String>,
     #[facet(rename = "createdOn")]
     pub created_on: DateTime<Utc>,
+    #[facet(rename = "endDateTime")]
+    pub end_date_time: Option<DateTime<Utc>>,
     #[facet(rename = "expandedProperties")]
     pub expanded_properties: RoleEligibilityScheduleExpandedProperties,
     #[facet(rename = "memberType")]
