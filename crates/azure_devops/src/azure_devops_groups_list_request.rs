@@ -1,6 +1,9 @@
+use crate::AzureDevOpsProjectsListRequest;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsGraphDescriptorResult;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsGroup;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsGroupListResponse;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_cache::CacheKey;
@@ -10,15 +13,22 @@ use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::MicrosoftContinuationToken;
 use cloud_terrastodon_rest::RestRequest;
+use eyre::bail;
+use eyre::ensure;
 use facet::Facet;
 use reqwest::Method;
 use std::borrow::Cow;
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::debug;
 
+/// Lists Azure DevOps Graph groups in a project's scope.
+///
+/// [Groups List (7.1)](https://learn.microsoft.com/en-us/rest/api/azure/devops/graph/groups/list?view=azure-devops-rest-7.1) uses the project scope's descriptor.
 #[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsGroupsListRequest<'a> {
@@ -38,16 +48,29 @@ impl<'a> Arbitrary<'a> for AzureDevOpsGroupsListRequest<'static> {
 }
 impl<'a> HasCacheKey for AzureDevOpsGroupsListRequest<'a> {
     fn cache_key(&self) -> eyre::Result<CacheKey> {
-        CacheKey::from_relative_path(PathBuf::from_iter([
-            "az",
-            "devops",
-            self.org_url.name(),
-            "security",
-            "group",
-            "list",
-            "--project",
-            &self.project.to_string(),
-        ]))
+        let (selector_kind, selector) = match &self.project {
+            AzureDevOpsProjectArgument::Id(id) => ("id", id.to_string()),
+            AzureDevOpsProjectArgument::Name(name) => {
+                ("name", name.to_string().to_ascii_lowercase())
+            }
+        };
+        let mut path = PathBuf::from("az/devops");
+        if self.org_url.collection_name().is_some() {
+            path.push("server");
+            path.push(self.org_url.instance_scheme());
+            for segment in self.org_url.instance_authority_and_path().split('/') {
+                path.push(sanitize_windows_path_component(segment));
+            }
+        }
+        path.extend([
+            "org",
+            &sanitize_windows_path_component(&self.org_url.name().to_ascii_lowercase()),
+            "project",
+            selector_kind,
+            &sanitize_windows_path_component(&selector),
+            "group/list",
+        ]);
+        CacheKey::from_relative_path(path)
     }
 }
 
@@ -75,23 +98,56 @@ impl<'a> ExecutableRequest for AzureDevOpsGroupsListRequest<'a> {
         Box::pin(async move {
             let project = &self.project;
             debug!("Fetching Azure DevOps groups for project {project}");
-            #[derive(Facet)]
-            #[facet(rename_all = "camelCase")]
-            struct Response {
-                #[facet(rename = "graphGroups")]
-                graph_groups: Option<Vec<Arc<AzureDevOpsGroup>>>,
-                value: Option<Vec<Arc<AzureDevOpsGroup>>>,
-            }
-
             let mut groups = Vec::new();
             let mut continuation: Option<MicrosoftContinuationToken> = None;
             let cache_key = self.cache_key()?;
+            let project_id = match &self.project {
+                AzureDevOpsProjectArgument::Id(id) => **id,
+                AzureDevOpsProjectArgument::Name(_) => {
+                    let projects = AzureDevOpsProjectsListRequest {
+                        org_url: Cow::Borrowed(self.org_url.as_ref()),
+                        auth_selection: self.auth_selection,
+                    }
+                    .execute(&executor)
+                    .await?;
+                    let Some(project) = projects
+                        .iter()
+                        .find(|project| self.project.matches(project))
+                    else {
+                        bail!("No project found matching '{}'.", self.project);
+                    };
+                    project.id
+                }
+            };
+            // The project UUID is its graph storage key. Resolve it before using
+            // scopeDescriptor so the list never defaults to the organization.
+            let url = self.org_url.api_url(
+                "vssps.dev.azure.com",
+                &format!("_apis/graph/descriptors/{project_id}"),
+                &[("api-version", "7.1")],
+            )?;
+            let descriptor = RestRequest::from_method_and_url(Method::GET, url)?
+                .cache(cache_key.join("descriptor")?)
+                .authentication(self.auth_selection.into())
+                .receive_cached::<AzureDevOpsGraphDescriptorResult>(
+                    &executor,
+                    CacheOperationOwner::of::<AzureDevOpsGroupsListRequest<'static>>(),
+                )
+                .await?
+                .value
+                .to_string();
+            ensure!(
+                !descriptor.trim().is_empty(),
+                "Azure DevOps returned an empty descriptor for project {project_id}"
+            );
+            let pages = cache_key.join("pages")?;
+            let mut seen = BTreeSet::new();
             let mut page_index = 0;
             loop {
-                let project = project.to_string();
+                executor.cancellation().bail_if_cancelled()?;
                 let mut query = vec![
                     ("api-version", "7.1-preview.1"),
-                    ("scopeDescriptor", project.as_str()),
+                    ("scopeDescriptor", descriptor.as_str()),
                 ];
                 if let Some(token) = continuation.as_ref() {
                     query.push(("continuationToken", token.as_str()));
@@ -100,28 +156,24 @@ impl<'a> ExecutableRequest for AzureDevOpsGroupsListRequest<'a> {
                     self.org_url
                         .api_url("vssps.dev.azure.com", "_apis/graph/groups", &query)?;
                 let request = RestRequest::from_method_and_url(Method::GET, url)?
-                    .cache(cache_key.join(page_index.to_string())?)
+                    .cache(pages.join(page_index.to_string())?)
                     .authentication(self.auth_selection.into());
                 let (response, next_continuation) = request
-                    .receive_with_ms_continuation_token_cached::<Response>(
+                    .receive_with_ms_continuation_token_cached::<AzureDevOpsGroupListResponse>(
                         &executor,
                         CacheOperationOwner::of::<AzureDevOpsGroupsListRequest<'static>>(),
                     )
                     .await?;
-                groups.extend(
-                    response
-                        .graph_groups
-                        .as_ref()
-                        .or(response.value.as_ref())
-                        .into_iter()
-                        .flatten()
-                        .cloned(),
-                );
-                continuation = next_continuation;
-                page_index += 1;
-                if continuation.is_none() {
+                groups.extend(response.value.iter().cloned());
+                let Some(token) = next_continuation else {
                     break;
-                }
+                };
+                ensure!(
+                    seen.insert(token.clone()),
+                    "Azure DevOps returned a repeated group continuation token"
+                );
+                continuation = Some(token);
+                page_index += 1;
             }
 
             debug!(
