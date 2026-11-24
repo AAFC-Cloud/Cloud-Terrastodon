@@ -39,23 +39,32 @@ impl ExecutableRequest for EntraSignedInUserThumbnailGetRequest {
     {
         Box::pin(async move {
             let url = Url::parse("https://graph.microsoft.com/v1.0/me/photos/48x48/$value")?;
-            match RestRequest::from_method_and_url(Method::GET, url)?
-                .authentication(self.authentication.into())
-                .transport_timeout(Duration::from_secs(10))
-                .receive_limited_bytes(&executor, 256 * 1024)
-                .await
-            {
-                Ok(bytes) => Ok(Some(EntraProfileThumbnail { bytes })),
-                Err(error)
-                    if error
-                        .downcast_ref::<RestHttpError>()
-                        .is_some_and(|error| error.status == StatusCode::NOT_FOUND) =>
-                {
-                    Ok(None)
-                }
-                Err(error) => Err(error),
-            }
+            receive_entra_thumbnail(&executor, self.authentication, url).await
         })
+    }
+}
+
+pub(crate) async fn receive_entra_thumbnail(
+    executor: &CloudTerrastodonExecutor,
+    authentication: AzureBearerAuthenticationSelection,
+    url: Url,
+) -> Result<Option<EntraProfileThumbnail>> {
+    match RestRequest::from_method_and_url(Method::GET, url)?
+        .authentication(authentication.into())
+        .transport_timeout(Duration::from_secs(10))
+        // Keep profile images in memory without retaining response artifacts.
+        .receive_limited_bytes(executor, 256 * 1024)
+        .await
+    {
+        Ok(bytes) => Ok(Some(EntraProfileThumbnail { bytes })),
+        Err(error)
+            if error
+                .downcast_ref::<RestHttpError>()
+                .is_some_and(|error| error.status == StatusCode::NOT_FOUND) =>
+        {
+            Ok(None)
+        }
+        Err(error) => Err(error),
     }
 }
 
