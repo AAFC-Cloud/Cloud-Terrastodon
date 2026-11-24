@@ -447,6 +447,7 @@ pub use crate::cost_management::*;
 pub use crate::eligible_child_resource_list_response::*;
 pub use crate::eligible_child_resources::*;
 pub use crate::entra_application_client_id::*;
+pub use crate::entra_application_object_id::*;
 pub use crate::entra_application_registration::*;
 pub use crate::entra_device_object_id::*;
 pub use crate::entra_directory_object::*;

@@ -1,7 +1,7 @@
 use crate::MicrosoftGraphHelper;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
-use cloud_terrastodon_azure_types::EntraApplicationClientId;
+use cloud_terrastodon_azure_types::EntraApplicationObjectId;
 use cloud_terrastodon_azure_types::EntraApplicationRegistration;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::HasCacheKey;
@@ -14,10 +14,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::debug;
 
+/// Read an application registration by its directory object ID.
+/// [Microsoft Graph Get application](https://learn.microsoft.com/en-us/graph/api/application-get?view=graph-rest-1.0)
 #[must_use = "This is a future request, you must .execute it"]
 #[derive(Arbitrary, Facet)]
 pub struct EntraApplicationRegistrationGetRequest {
-    pub application_id: EntraApplicationClientId,
+    /// Directory object ID used by the `/applications/{applicationObjectId}` route.
+    pub application_object_id: EntraApplicationObjectId,
     pub authentication: AzureBearerAuthenticationSelection,
 }
 
@@ -25,7 +28,7 @@ impl EntraApplicationRegistrationGetRequest {
     fn url(&self) -> String {
         format!(
             "https://graph.microsoft.com/v1.0/applications/{}",
-            self.application_id
+            self.application_object_id
         )
     }
 }
@@ -40,7 +43,7 @@ impl HasCacheKey for EntraApplicationRegistrationGetRequest {
             "GET",
             "applications",
             self.authentication.tenant_id.to_string().as_str(),
-            self.application_id.to_string().as_str(),
+            self.application_object_id.to_string().as_str(),
         ]))
     }
 }
@@ -62,8 +65,8 @@ impl ExecutableRequest for EntraApplicationRegistrationGetRequest {
         Box::pin(async move {
             debug!(
                 tenant_id = %self.authentication.tenant_id,
-                application_registration_id = %self.application_id,
-                "Fetching application registration by object id"
+                application_object_id = %self.application_object_id,
+                "Fetching application registration by object ID"
             );
             MicrosoftGraphHelper::new(self.url(), Some(self.cache_key()?), self.authentication)
                 .fetch_one(&executor)

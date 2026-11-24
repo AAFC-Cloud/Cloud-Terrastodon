@@ -1,6 +1,6 @@
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
-use cloud_terrastodon_azure::EntraApplicationClientId;
+use cloud_terrastodon_azure::EntraApplicationObjectId;
 use cloud_terrastodon_azure::EntraApplicationRegistration;
 use cloud_terrastodon_azure::EntraApplicationRegistrationGetRequest;
 use cloud_terrastodon_azure::EntraApplicationRegistrationListRequest;
@@ -28,9 +28,9 @@ impl AzureEntraApplicationRegistrationShowArgs {
         info!(needle = %self.application_registration, tenant_id = %authentication.tenant_id, "Fetching application registrations");
         let needle = self.application_registration.trim();
 
-        if let Ok(app_id) = needle.parse::<EntraApplicationClientId>() {
+        if let Ok(application_object_id) = needle.parse::<EntraApplicationObjectId>() {
             match (EntraApplicationRegistrationGetRequest {
-                application_id: (app_id),
+                application_object_id,
                 authentication,
             })
             .execute(executor)
