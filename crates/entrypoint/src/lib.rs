@@ -8,6 +8,8 @@ mod menu_action;
 mod noninteractive;
 mod serde_json_isolation;
 mod version;
+#[cfg(windows)]
+mod windows_shell_launch;
 
 pub use crate::build_timestamp::BuildTimestamp;
 pub use crate::cli::*;

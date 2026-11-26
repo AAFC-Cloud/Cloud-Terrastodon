@@ -7,11 +7,15 @@ use crate::git_revision::GitRevision;
 use crate::git_revision::set_git_revision;
 use crate::version::full_version;
 use crate::version::set_version;
+#[cfg(windows)]
+use crate::windows_shell_launch::launched_from_explorer;
 use cloud_terrastodon_app::App;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::CredentialAuthenticationProvider;
 use cloud_terrastodon_cache::WorkCacheActivity;
 use eyre::Result;
+#[cfg(windows)]
+use std::ffi::OsString;
 use std::process::ExitCode;
 use std::process::Termination;
 use std::sync::Arc;
@@ -28,7 +32,8 @@ pub fn entrypoint(
     set_build_timestamp(build_timestamp)?;
     set_version(version)?;
 
-    let executable_name = std::env::args_os()
+    let mut args = std::env::args_os();
+    let executable_name = args
         .next()
         .and_then(|path| {
             std::path::Path::new(&path)
@@ -36,13 +41,18 @@ pub fn entrypoint(
                 .map(|name| name.to_string_lossy().into_owned())
         })
         .unwrap_or_else(|| "cloud_terrastodon".into());
+    #[cfg(windows)]
+    let args = (args.len() == 0 && launched_from_explorer())
+        .then(|| OsString::from("egui"))
+        .into_iter()
+        .chain(args);
     // Interactive commands await terminal restoration and background-job shutdown.
     // Keep this owner cooperative; requests and scoped jobs cancel independently.
     let app = App::new(executable_name, full_version()?.to_string())
         .authentication_provider(Arc::new(CredentialAuthenticationProvider::configured()))
         .automatic_cancellation(false)
         .implementation_github("AAFC-Cloud/Cloud-Terrastodon", implementation_revision);
-    let cli: Cli = match app.parse_from(std::env::args_os().skip(1)).into_result() {
+    let cli: Cli = match app.parse_from(args).into_result() {
         Ok(output) => output.get(),
         Err(outcome) => {
             let status = outcome.report();

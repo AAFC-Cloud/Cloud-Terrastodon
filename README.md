@@ -26,7 +26,9 @@ Grab the latest version from the [GitHub releases page](https://github.com/AAFC-
 
 ## Usage
 
-By defauilt, the app takes no arguments and enters an interactive terminal user interface.
+Double-click the executable in Windows File Explorer to launch the graphical
+interface. From a terminal, run it without arguments to open the interactive
+terminal menu, or use `ct egui` to launch the graphical interface.
 
 ![A terminal showing a list of commands](./media/main_menu.png)
 
