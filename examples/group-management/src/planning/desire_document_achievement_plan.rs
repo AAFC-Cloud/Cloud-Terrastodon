@@ -1,8 +1,7 @@
 use crate::planning::GroupPlan;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon::azure_types::AzureTenantId;
 use facet::Facet;
+use jiff::Timestamp;
 
 mod save;
 mod try_new;
@@ -16,7 +15,7 @@ mod try_new;
 #[facet(rename_all = "camelCase")]
 pub struct DesireDocumentAchievementPlan {
     pub schema_version: u32,
-    pub created_at: DateTime<Utc>,
+    pub created_at: Timestamp,
     pub source_digest: String,
     pub selected_tenant_id: Option<AzureTenantId>,
     pub document_tenant_ids: Vec<AzureTenantId>,

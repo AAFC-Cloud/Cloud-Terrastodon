@@ -42,7 +42,7 @@ pub(crate) fn show_azure_devops_project_overview(ui: &mut Ui, project: &AzureDev
                 ui.label(
                     project
                         .last_update_time
-                        .format("%Y-%m-%d %H:%M:%S")
+                        .strftime("%Y-%m-%d %H:%M:%S")
                         .to_string(),
                 );
                 ui.end_row();

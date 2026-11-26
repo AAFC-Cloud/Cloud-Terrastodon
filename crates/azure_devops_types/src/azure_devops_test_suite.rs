@@ -2,9 +2,8 @@ use super::azure_devops_test_plan::AzureDevOpsTestPlanIdentityRef;
 use super::azure_devops_test_plan::AzureDevOpsTestPlanShallowReference;
 use crate::AzureDevOpsWorkItemId;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 #[derive(Debug, Eq, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
@@ -17,9 +16,9 @@ pub struct AzureDevOpsTestSuite {
     pub id: u32,
     pub inherit_default_configurations: Option<bool>,
     pub last_error: Option<String>,
-    pub last_populated_date: Option<DateTime<Utc>>,
+    pub last_populated_date: Option<Timestamp>,
     pub last_updated_by: Option<AzureDevOpsTestPlanIdentityRef>,
-    pub last_updated_date: Option<DateTime<Utc>>,
+    pub last_updated_date: Option<Timestamp>,
     pub name: String,
     pub parent: Option<AzureDevOpsTestPlanShallowReference>,
     pub plan: Option<AzureDevOpsTestPlanShallowReference>,

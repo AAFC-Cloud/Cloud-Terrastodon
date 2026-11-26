@@ -4,9 +4,6 @@ use crate::AzureAuditPasswordCredentialStatus;
 use crate::AzureResourceTagAuditRequest;
 use crate::AzureServicePrincipalPasswordAuditRequest;
 use crate::AzureUnknownPrincipalAuditRequest;
-use chrono::DateTime;
-use chrono::Duration;
-use chrono::Utc;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::AzureResourceListRequest;
@@ -46,6 +43,8 @@ use cloud_terrastodon_execution::CacheInvalidatableRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::TestAuthenticationProvider;
+use jiff::SignedDuration;
+use jiff::Timestamp;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -69,7 +68,7 @@ fn user(id: u128, name: &str, other_mails: &[&str]) -> EntraPrincipal {
     }))
 }
 
-fn passwords(now: DateTime<Utc>, expiry_days: &[i64]) -> EntraPrincipalCollection {
+fn passwords(now: Timestamp, expiry_days: &[i64]) -> EntraPrincipalCollection {
     EntraPrincipalCollection::new([EntraPrincipal::ServicePrincipal(Arc::new(
         EntraServicePrincipal {
             account_enabled: true,
@@ -100,9 +99,9 @@ fn passwords(now: DateTime<Utc>, expiry_days: &[i64]) -> EntraPrincipalCollectio
                 .iter()
                 .map(|days| ServicePrincipalPasswordCredential {
                     custom_key_identifier: None,
-                    end_date_time: now + Duration::days(*days),
+                    end_date_time: now + SignedDuration::from_hours(*days * 24),
                     key_id: uuid::Uuid::from_u128(3),
-                    start_date_time: now - Duration::days(60),
+                    start_date_time: now - SignedDuration::from_hours(60 * 24),
                     secret_text: None,
                     hint: None,
                     display_name: None,
@@ -125,7 +124,7 @@ fn passwords(now: DateTime<Utc>, expiry_days: &[i64]) -> EntraPrincipalCollectio
 
 #[test]
 fn audit_policy_tests_preserve_expiry_boundaries_and_replacement_cleanup() -> eyre::Result<()> {
-    let now = "2020-01-01T00:00:00Z".parse::<DateTime<Utc>>()?;
+    let now = "2020-01-01T00:00:00Z".parse::<Timestamp>()?;
     CancellationToken::new().with_scope(|scope| {
         let no_replacement = AzureServicePrincipalPasswordAuditRequest::evaluate(
             &passwords(now, &[-1, 29, 30]),

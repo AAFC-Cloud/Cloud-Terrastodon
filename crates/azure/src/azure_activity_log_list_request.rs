@@ -1,10 +1,5 @@
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
-use chrono::DateTime;
-use chrono::DurationRound;
-use chrono::SecondsFormat;
-use chrono::TimeDelta;
-use chrono::Utc;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::AzureActivityLogEvent;
 use cloud_terrastodon_azure_types::AzureActivityLogPage;
@@ -27,6 +22,11 @@ use eyre::ensure;
 use eyre::eyre;
 use facet::Facet;
 use http::Method;
+use jiff::RoundMode;
+use jiff::SignedDuration;
+use jiff::Timestamp;
+use jiff::TimestampRound;
+use jiff::Unit;
 use std::collections::HashSet;
 use std::fmt::Write;
 use std::path::PathBuf;
@@ -45,8 +45,8 @@ const MANAGEMENT_GROUP_API_VERSION: &str = "2017-03-01-preview";
 pub struct AzureActivityLogListRequest {
     pub authentication: AzureBearerAuthenticationSelection,
     pub scope: AzureActivityLogScope,
-    pub from: DateTime<Utc>,
-    pub until: DateTime<Utc>,
+    pub from: Timestamp,
+    pub until: Timestamp,
 }
 
 impl AzureActivityLogListRequest {
@@ -56,13 +56,17 @@ impl AzureActivityLogListRequest {
         authentication: AzureBearerAuthenticationSelection,
         scope: AzureActivityLogScope,
     ) -> Result<Self> {
-        let until = Utc::now()
-            .duration_trunc(TimeDelta::minutes(1))
+        let until = Timestamp::now()
+            .round(
+                TimestampRound::new()
+                    .smallest(Unit::Minute)
+                    .mode(RoundMode::Floor),
+            )
             .wrap_err("rounding the activity log time window")?;
         Ok(Self {
             authentication,
             scope,
-            from: until - TimeDelta::hours(24),
+            from: until.checked_sub(SignedDuration::from_hours(24))?,
             until,
         })
     }
@@ -86,7 +90,7 @@ impl AzureActivityLogListRequest {
 
 impl<'a> Arbitrary<'a> for AzureActivityLogListRequest {
     fn arbitrary(input: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
-        let [first, second]: [DateTime<Utc>; 2] = input.arbitrary()?;
+        let [first, second]: [Timestamp; 2] = input.arbitrary()?;
         Ok(Self {
             authentication: input.arbitrary()?,
             scope: input.arbitrary()?,
@@ -152,16 +156,14 @@ impl ExecutableRequest for AzureActivityLogListRequest {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            // TODO(jiff): Store a start time and a nonnegative duration so a
-            // reversed window cannot be constructed.
+            // Saved requests express the window as explicit endpoints.
             ensure!(
                 self.from <= self.until,
                 "activity log end time must be at or after its start time"
             );
             let mut filter = format!(
                 "eventTimestamp ge '{}' and eventTimestamp le '{}'",
-                self.from.to_rfc3339_opts(SecondsFormat::AutoSi, true),
-                self.until.to_rfc3339_opts(SecondsFormat::AutoSi, true),
+                self.from, self.until,
             );
             let (path, api_version) = match &self.scope {
                 AzureActivityLogScope::Subscription(id) => (id.expanded_form(), API_VERSION),

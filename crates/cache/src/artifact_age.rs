@@ -1,6 +1,5 @@
 use crate::ArtifactFreshness;
-use chrono::DateTime;
-use chrono::Utc;
+use jiff::Timestamp;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -17,7 +16,7 @@ impl ArtifactAge {
         &self,
         freshness: &ArtifactFreshness,
         validity: Duration,
-        wall: DateTime<Utc>,
+        wall: Timestamp,
         monotonic: Instant,
     ) -> bool {
         if &self.freshness != freshness || !freshness.is_reusable_at(wall, validity) {
@@ -33,8 +32,7 @@ impl ArtifactAge {
             return false;
         };
         expiry.is_none_or(|expiry| {
-            (expiry - freshness.observed_at)
-                .to_std()
+            Duration::try_from(expiry.duration_since(freshness.observed_at))
                 .is_ok_and(|maximum| age < maximum)
         })
     }
@@ -45,7 +43,7 @@ mod tests {
     use super::*;
     #[test]
     fn wall_clock_rollback_and_repeated_reads_never_renew_monotonic_age() {
-        let observed = DateTime::from_timestamp(1_700_000_000, 0).unwrap();
+        let observed = Timestamp::new(1_700_000_000, 0).unwrap();
         let freshness = ArtifactFreshness::new(observed, Duration::from_secs(60)).unwrap();
         let anchor = Instant::now();
         let age = ArtifactAge {
@@ -56,19 +54,19 @@ mod tests {
         assert!(age.reusable(
             &freshness,
             Duration::MAX,
-            observed + chrono::TimeDelta::seconds(30),
+            observed + Duration::from_secs(30),
             anchor + Duration::from_secs(10)
         ));
         assert!(!age.reusable(
             &freshness,
             Duration::MAX,
-            observed + chrono::TimeDelta::seconds(1),
+            observed + Duration::from_secs(1),
             anchor + Duration::from_secs(40)
         ));
         assert!(!age.reusable(
             &freshness,
             Duration::from_secs(25),
-            observed + chrono::TimeDelta::seconds(1),
+            observed + Duration::from_secs(1),
             anchor + Duration::from_secs(10)
         ));
     }

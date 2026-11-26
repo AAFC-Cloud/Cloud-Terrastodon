@@ -1,9 +1,8 @@
 use crate::entra_application_credential_metadata::EntraApplicationCredentialMetadata;
 use crate::entra_application_credential_status::EntraApplicationCredentialStatus;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure::ArbitraryJson;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// Visible credential metadata with no credential material or hints.
 #[derive(Facet)]
@@ -16,12 +15,7 @@ pub(crate) struct EntraApplicationCredentialRow {
 }
 
 impl EntraApplicationCredentialRow {
-    pub fn new(
-        index: usize,
-        credential: &ArbitraryJson,
-        now: DateTime<Utc>,
-        demo_mode: bool,
-    ) -> Self {
+    pub fn new(index: usize, credential: &ArbitraryJson, now: Timestamp, demo_mode: bool) -> Self {
         let metadata = EntraApplicationCredentialMetadata::read(credential);
         Self {
             index,
@@ -48,6 +42,6 @@ impl EntraApplicationCredentialRow {
     }
 }
 
-fn credential_timestamp(value: DateTime<Utc>) -> String {
-    value.format("%Y-%m-%d %H:%M UTC").to_string()
+fn credential_timestamp(value: Timestamp) -> String {
+    value.strftime("%Y-%m-%d %H:%M UTC").to_string()
 }

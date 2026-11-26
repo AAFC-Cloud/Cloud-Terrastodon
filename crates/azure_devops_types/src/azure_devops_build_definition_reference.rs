@@ -11,10 +11,9 @@ use crate::AzureDevOpsBuildFolderPath;
 use crate::AzureDevOpsIdentityReference;
 use crate::AzureDevOpsProjectReference;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// A definition reference returned by the build definitions list endpoint.
 ///
@@ -30,7 +29,7 @@ pub struct AzureDevOpsBuildDefinitionReference {
     pub name: AzureDevOpsBuildDefinitionName,
     pub path: AzureDevOpsBuildFolderPath,
     pub uri: AzureDevOpsBuildDefinitionUri,
-    pub created_date: DateTime<Utc>,
+    pub created_date: Timestamp,
     pub revision: Option<i32>,
     pub quality: Option<AzureDevOpsBuildDefinitionQuality>,
     pub authored_by: Option<AzureDevOpsIdentityReference>,

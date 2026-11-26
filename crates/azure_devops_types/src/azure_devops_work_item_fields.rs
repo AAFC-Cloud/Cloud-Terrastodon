@@ -4,13 +4,12 @@ use crate::AzureDevOpsWorkItemIdentity;
 use crate::AzureDevOpsWorkItemPatchFields;
 use crate::AzureDevOpsWorkItemType;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use eyre::Result;
 use facet::Facet;
 use facet_reflect::HasFields;
 use facet_reflect::Peek;
+use jiff::Timestamp;
 use std::collections::BTreeMap;
 
 /// The fields returned in an Azure DevOps work item response.
@@ -30,7 +29,7 @@ pub struct AzureDevOpsWorkItemFields {
         default,
         skip_serializing_if = Option::is_none
     )]
-    pub common_state_change_date: Option<DateTime<Utc>>,
+    pub common_state_change_date: Option<Timestamp>,
     #[facet(
         rename = "Microsoft.VSTS.Common.ValueArea",
         default,
@@ -66,7 +65,7 @@ pub struct AzureDevOpsWorkItemFields {
         default,
         skip_serializing_if = Option::is_none
     )]
-    pub authorized_date: Option<DateTime<Utc>>,
+    pub authorized_date: Option<Timestamp>,
     #[facet(
         rename = "System.ChangedBy",
         default,
@@ -78,7 +77,7 @@ pub struct AzureDevOpsWorkItemFields {
         default,
         skip_serializing_if = Option::is_none
     )]
-    pub changed_date: Option<DateTime<Utc>>,
+    pub changed_date: Option<Timestamp>,
     #[facet(
         rename = "System.CommentCount",
         default,
@@ -96,7 +95,7 @@ pub struct AzureDevOpsWorkItemFields {
         default,
         skip_serializing_if = Option::is_none
     )]
-    pub created_date: Option<DateTime<Utc>>,
+    pub created_date: Option<Timestamp>,
     #[facet(
         rename = "System.Description",
         default,
@@ -148,7 +147,7 @@ pub struct AzureDevOpsWorkItemFields {
         default,
         skip_serializing_if = Option::is_none
     )]
-    pub revised_date: Option<DateTime<Utc>>,
+    pub revised_date: Option<Timestamp>,
     #[facet(rename = "System.State", default, skip_serializing_if = Option::is_none)]
     pub state: Option<String>,
     #[facet(rename = "System.Title", default, skip_serializing_if = Option::is_none)]

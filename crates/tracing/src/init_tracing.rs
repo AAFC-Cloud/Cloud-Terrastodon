@@ -3,8 +3,8 @@
 //! Reusable capture, retained reports, and presentation live in `teamy-tracing`.
 use crate::figue_default_extraction_terminal_filter::FigueDefaultExtractionTerminalFilter;
 use crate::simple_css_terminal_filter::SimpleCssTerminalFilter;
-use chrono::Local;
 use eyre::Result;
+use jiff::ZonedDateTime;
 use std::fs::OpenOptions;
 use std::path::Path;
 use std::path::PathBuf;
@@ -119,7 +119,7 @@ fn build_subscriber(
     );
 
     let json_layer = if let Some(path) = json_path {
-        let timestamp = Local::now().format("%Y-%m-%d_%H-%M-%S");
+        let timestamp = ZonedDateTime::now().strftime("%Y-%m-%d_%H-%M-%S");
         let json_log_path = if path.is_dir() {
             path.join(format!("cloud_terrastodon_log_{timestamp}.ndjson"))
         } else {

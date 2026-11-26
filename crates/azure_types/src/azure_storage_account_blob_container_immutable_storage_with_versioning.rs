@@ -1,8 +1,7 @@
 use crate::AzureStorageAccountBlobContainerMigrationState;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// Object-level immutability configuration and migration status.
 ///
@@ -15,7 +14,7 @@ use facet::Facet;
 pub struct AzureStorageAccountBlobContainerImmutableStorageWithVersioning {
     pub enabled: bool,
     /// Not returned in the documented object-level WORM creation response.
-    pub time_stamp: Option<DateTime<Utc>>,
+    pub time_stamp: Option<Timestamp>,
     /// Relevant to migration; omitted when object-level WORM is enabled at creation.
     pub migration_state: Option<AzureStorageAccountBlobContainerMigrationState>,
 }

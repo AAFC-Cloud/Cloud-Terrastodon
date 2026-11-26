@@ -1,7 +1,5 @@
 use crate::WorkItemListResponse;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
@@ -17,6 +15,7 @@ use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use eyre::ensure;
 use facet::Facet;
+use jiff::Timestamp;
 use reqwest::Method;
 use reqwest::Url;
 use std::borrow::Borrow;
@@ -40,7 +39,7 @@ pub struct AzureDevOpsWorkItemsGetRequest<'a> {
     /// Azure DevOps expects an ISO 8601 date-time string, for example
     /// `2017-12-21T19:42:54.230Z`. See the official [`List Work Items`](https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/work-items/list?view=azure-devops-rest-7.1)
     /// documentation for the `asOf` query parameter.
-    pub as_of: Option<DateTime<Utc>>,
+    pub as_of: Option<Timestamp>,
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemsGetRequest<'static> {
@@ -52,7 +51,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemsGetRequest<'static> {
             ids: Vec::<AzureDevOpsWorkItemId>::arbitrary(u)?,
             expand: AzureDevOpsWorkItemExpand::arbitrary(u)?,
             fields: Vec::<String>::arbitrary(u)?,
-            as_of: Option::<DateTime<Utc>>::arbitrary(u)?,
+            as_of: Option::<Timestamp>::arbitrary(u)?,
         })
     }
 }
@@ -109,7 +108,7 @@ impl AzureDevOpsWorkItemsGetRequest<'_> {
                 #[facet(skip_serializing_if = Vec::is_empty)]
                 fields: Vec<String>,
                 #[facet(skip_serializing_if = Option::is_none)]
-                as_of: Option<String>,
+                as_of: Option<Timestamp>,
                 error_policy: String,
             }
 
@@ -117,7 +116,7 @@ impl AzureDevOpsWorkItemsGetRequest<'_> {
                 ids: chunk.to_vec(),
                 expand: self.expand,
                 fields: self.fields.clone(),
-                as_of: self.as_of.as_ref().map(DateTime::to_rfc3339),
+                as_of: self.as_of,
                 error_policy: "fail".to_owned(),
             };
             let mut url = Url::parse(&self.org_url.to_string())?;

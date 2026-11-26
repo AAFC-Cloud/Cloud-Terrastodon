@@ -1,10 +1,9 @@
 use crate::AzureDevOpsWorkItemQueryFlattenedHierarchyEntry;
 use crate::AzureDevOpsWorkItemQueryId;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use facet::Facet;
+use jiff::Timestamp;
 use std::collections::VecDeque;
 
 /// Also known as: QueryHierarchyItem
@@ -17,7 +16,7 @@ pub struct AzureDevOpsWorkItemQuery {
     #[facet(default)]
     pub children: Vec<AzureDevOpsWorkItemQuery>,
     pub created_by: Option<ArbitraryJson>,
-    pub created_date: DateTime<Utc>,
+    pub created_date: Timestamp,
     #[facet(default)]
     pub has_children: bool,
     pub id: AzureDevOpsWorkItemQueryId,
@@ -25,7 +24,7 @@ pub struct AzureDevOpsWorkItemQuery {
     pub is_folder: bool,
     pub is_public: bool,
     pub last_modified_by: ArbitraryJson,
-    pub last_modified_date: DateTime<Utc>,
+    pub last_modified_date: Timestamp,
     pub name: String,
     pub path: String,
     pub url: String,

@@ -1,9 +1,9 @@
-use chrono::Local;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::EntraSecurityGroupListRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::WrapErr;
+use jiff::ZonedDateTime;
 use std::path::PathBuf;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
@@ -23,7 +23,7 @@ pub async fn dump_security_groups_as_json(
     security_groups.sort_by(|x, y| x.display_name.cmp(&y.display_name));
     let content = facet_json::to_string_pretty(&security_groups)
         .wrap_err("serializing security groups for export")?;
-    let date = Local::now().format("%Y%m%d_%H%M%S").to_string();
+    let date = ZonedDateTime::now().strftime("%Y%m%d_%H%M%S").to_string();
     let destination_file = PathBuf::from(format!("Security Groups {date}.json"));
     let mut file = OpenOptions::new()
         .create_new(true)

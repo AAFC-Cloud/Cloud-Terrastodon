@@ -68,8 +68,8 @@ mod tests {
     use super::*;
     use crate::portal_page::PortalPage;
     use crate::portal_tab_target::PortalTabTarget;
-    use chrono::DateTime;
     use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+    use jiff::Timestamp;
     use std::collections::HashMap;
 
     #[derive(Default)]
@@ -98,7 +98,7 @@ mod tests {
         history.record(PortalHistoryEntry {
             target: target.clone(),
             title: "DevOps projects".to_owned(),
-            visited_at: DateTime::from_timestamp_secs(0).unwrap(),
+            visited_at: Timestamp::UNIX_EPOCH,
             resource_kind: None,
             authentication: None,
         });
@@ -128,7 +128,7 @@ mod tests {
         history.record(PortalHistoryEntry {
             target: PortalAzureDevOpsOrganizationView::Project(project).target(&organization),
             title: "Synthetic project".to_owned(),
-            visited_at: DateTime::from_timestamp_secs(0).unwrap(),
+            visited_at: Timestamp::UNIX_EPOCH,
             resource_kind: None,
             authentication: None,
         });
@@ -164,7 +164,7 @@ mod tests {
             history.record(PortalHistoryEntry {
                 target: target.clone(),
                 title: target.title().into_owned(),
-                visited_at: DateTime::from_timestamp_secs(seconds).unwrap(),
+                visited_at: Timestamp::from_second(seconds).unwrap(),
                 resource_kind: None,
                 authentication: Some(first_account),
             });
@@ -183,7 +183,7 @@ mod tests {
         assert_eq!(
             matching
                 .iter()
-                .map(|entry| entry.visited_at.timestamp())
+                .map(|entry| entry.visited_at.as_second())
                 .collect::<Vec<_>>(),
             [172800, 86400, 0]
         );

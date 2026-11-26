@@ -2,14 +2,13 @@ use crate::ArbitraryJson;
 use crate::EntraGroupDisplayName;
 use crate::EntraGroupId;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_hcl_types::AzureAdResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// An Entra [group](https://learn.microsoft.com/en-us/graph/api/resources/group?view=graph-rest-1.0)
 /// returned by Microsoft Graph v1.0.
@@ -17,12 +16,12 @@ use facet::Facet;
 #[facet(rename_all = "camelCase")]
 pub struct EntraGroup {
     pub classification: Option<ArbitraryJson>,
-    pub created_date_time: Option<DateTime<Utc>>,
+    pub created_date_time: Option<Timestamp>,
     pub creation_options: Vec<String>,
-    pub deleted_date_time: Option<DateTime<Utc>>,
+    pub deleted_date_time: Option<Timestamp>,
     pub description: Option<String>,
     pub display_name: EntraGroupDisplayName,
-    pub expiration_date_time: Option<DateTime<Utc>>,
+    pub expiration_date_time: Option<Timestamp>,
     pub group_types: Vec<String>,
     pub id: EntraGroupId,
     pub is_assignable_to_role: Option<bool>,
@@ -32,7 +31,7 @@ pub struct EntraGroup {
     pub membership_rule: Option<ArbitraryJson>,
     pub membership_rule_processing_state: Option<ArbitraryJson>,
     pub on_premises_domain_name: Option<String>,
-    pub on_premises_last_sync_date_time: Option<DateTime<Utc>>,
+    pub on_premises_last_sync_date_time: Option<Timestamp>,
     pub on_premises_net_bios_name: Option<String>,
     pub on_premises_provisioning_errors: Vec<ArbitraryJson>,
     pub on_premises_sam_account_name: Option<String>,
@@ -41,7 +40,7 @@ pub struct EntraGroup {
     pub preferred_data_location: Option<String>,
     pub preferred_language: Option<String>,
     pub proxy_addresses: Vec<String>,
-    pub renewed_date_time: Option<DateTime<Utc>>,
+    pub renewed_date_time: Option<Timestamp>,
     pub resource_behavior_options: Vec<String>,
     pub resource_provisioning_options: Vec<String>,
     pub security_enabled: bool,
@@ -55,12 +54,12 @@ impl<'a> Arbitrary<'a> for EntraGroup {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             classification: arbitrary_optional_json(u)?,
-            created_date_time: Option::<DateTime<Utc>>::arbitrary(u)?,
+            created_date_time: Option::<Timestamp>::arbitrary(u)?,
             creation_options: Vec::<String>::arbitrary(u)?,
-            deleted_date_time: Option::<DateTime<Utc>>::arbitrary(u)?,
+            deleted_date_time: Option::<Timestamp>::arbitrary(u)?,
             description: Option::<String>::arbitrary(u)?,
             display_name: EntraGroupDisplayName::arbitrary(u)?,
-            expiration_date_time: Option::<DateTime<Utc>>::arbitrary(u)?,
+            expiration_date_time: Option::<Timestamp>::arbitrary(u)?,
             group_types: Vec::<String>::arbitrary(u)?,
             id: EntraGroupId::arbitrary(u)?,
             is_assignable_to_role: Option::<bool>::arbitrary(u)?,
@@ -70,7 +69,7 @@ impl<'a> Arbitrary<'a> for EntraGroup {
             membership_rule: arbitrary_optional_json(u)?,
             membership_rule_processing_state: arbitrary_optional_json(u)?,
             on_premises_domain_name: Option::<String>::arbitrary(u)?,
-            on_premises_last_sync_date_time: Option::<DateTime<Utc>>::arbitrary(u)?,
+            on_premises_last_sync_date_time: Option::<Timestamp>::arbitrary(u)?,
             on_premises_net_bios_name: Option::<String>::arbitrary(u)?,
             on_premises_provisioning_errors: arbitrary_json_vec(u)?,
             on_premises_sam_account_name: Option::<String>::arbitrary(u)?,
@@ -79,7 +78,7 @@ impl<'a> Arbitrary<'a> for EntraGroup {
             preferred_data_location: Option::<String>::arbitrary(u)?,
             preferred_language: Option::<String>::arbitrary(u)?,
             proxy_addresses: Vec::<String>::arbitrary(u)?,
-            renewed_date_time: Option::<DateTime<Utc>>::arbitrary(u)?,
+            renewed_date_time: Option::<Timestamp>::arbitrary(u)?,
             resource_behavior_options: Vec::<String>::arbitrary(u)?,
             resource_provisioning_options: Vec::<String>::arbitrary(u)?,
             security_enabled: bool::arbitrary(u)?,

@@ -17,6 +17,7 @@ use cloud_terrastodon_execution::ExecutionFuture;
 use eyre::Result;
 use eyre::ensure;
 use facet::Facet;
+use jiff::Timestamp;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
@@ -65,7 +66,7 @@ impl<'a> ExecutableRequest for AzureDevOpsWorkItemCopyPlanRequest<'a> {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            let as_of = self.options.as_of.unwrap_or_else(chrono::Utc::now);
+            let as_of = self.options.as_of.unwrap_or_else(Timestamp::now);
             let allowed: BTreeSet<_> = self.options.allowed_ids.iter().copied().collect();
             let mut frontier = vec![self.root];
             let mut items = BTreeMap::new();

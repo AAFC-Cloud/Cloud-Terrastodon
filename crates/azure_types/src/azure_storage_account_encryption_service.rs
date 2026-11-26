@@ -1,8 +1,7 @@
 use crate::AzureStorageAccountEncryptionKeyType;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// Encryption status and key scope for one storage service.
 ///
@@ -13,7 +12,7 @@ use facet::Facet;
 pub struct AzureStorageAccountEncryptionService {
     pub enabled: Option<bool>,
     pub key_type: Option<AzureStorageAccountEncryptionKeyType>,
-    pub last_enabled_time: Option<DateTime<Utc>>,
+    pub last_enabled_time: Option<Timestamp>,
 }
 
 cloud_terrastodon_registry::register_thing!(AzureStorageAccountEncryptionService);

@@ -1,9 +1,8 @@
 use crate::ArtifactFreshness;
 use crate::artifact_expiry::ArtifactExpiry;
 use crate::artifact_timestamp_proxy::ArtifactTimestampProxy;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// Wire boundary that requires an observation and explicit expiry policy.
 ///
@@ -13,7 +12,7 @@ use facet::Facet;
 #[derive(Clone, Debug, Facet)]
 pub(crate) struct ArtifactFreshnessWire {
     #[facet(proxy = ArtifactTimestampProxy)]
-    pub observed_at: DateTime<Utc>,
+    pub observed_at: Timestamp,
     pub expires_at: ArtifactExpiry,
 }
 

@@ -4,9 +4,6 @@ use crate::portal_log_exclusion::DEFAULT_LOG_EXCLUSIONS;
 use crate::portal_log_exclusion::PortalLogExclusion;
 use crate::portal_search::portal_search;
 use crate::table_row_background::TableRowBackground;
-use chrono::DateTime;
-use chrono::Local;
-use chrono::SecondsFormat;
 use eframe::egui::Button;
 use eframe::egui::Checkbox;
 use eframe::egui::CollapsingHeader;
@@ -23,6 +20,8 @@ use egui_extras::Column;
 use egui_toast::Toast;
 use egui_toast::ToastKind;
 use egui_toast::ToastOptions;
+use jiff::Timestamp;
+use jiff::tz::TimeZone;
 use std::collections::HashSet;
 use std::time::Duration;
 use std::time::Instant;
@@ -299,9 +298,13 @@ fn show_log_records(
                         row.col(|ui| {
                             ui.add(
                                 Label::new(
-                                    DateTime::<Local>::from(record.timestamp)
-                                        .format("%H:%M:%S%.3f")
-                                        .to_string(),
+                                    Timestamp::try_from(record.timestamp)
+                                        .map(|time| {
+                                            time.to_zoned_datetime(TimeZone::system())
+                                                .strftime("%H:%M:%S%.3f")
+                                                .to_string()
+                                        })
+                                        .unwrap_or_else(|_| "Unknown time".into()),
                                 )
                                 .truncate(),
                             );
@@ -342,8 +345,13 @@ fn selected_log_text(records: &[LogRecord], start: usize, checked: &HashSet<usiz
         .enumerate()
         .filter(|(index, _)| checked.contains(&(start + index)))
         .map(|(_, record)| {
-            let timestamp = DateTime::<Local>::from(record.timestamp)
-                .to_rfc3339_opts(SecondsFormat::Millis, false);
+            let timestamp = Timestamp::try_from(record.timestamp)
+                .map(|time| {
+                    time.to_zoned_datetime(TimeZone::system())
+                        .strftime("%Y-%m-%dT%H:%M:%S%.3f%:z")
+                        .to_string()
+                })
+                .unwrap_or_else(|_| "Unknown time".into());
             let target = escape_display(&record.target);
             format!("[{timestamp}] {target}\n{}", format_record_plain(record))
         })

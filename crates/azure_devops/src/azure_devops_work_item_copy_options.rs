@@ -1,8 +1,7 @@
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemId;
 use facet::Facet;
+use jiff::Timestamp;
 
 #[derive(Debug, Clone, Arbitrary, Default, Facet)]
 pub struct AzureDevOpsWorkItemCopyOptions {
@@ -13,5 +12,5 @@ pub struct AzureDevOpsWorkItemCopyOptions {
     pub title: Option<String>,
     pub keep_parent: bool,
     pub keep_external_relations: bool,
-    pub as_of: Option<DateTime<Utc>>,
+    pub as_of: Option<Timestamp>,
 }

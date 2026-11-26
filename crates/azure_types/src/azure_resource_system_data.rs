@@ -1,8 +1,7 @@
 use crate::azure_resource_created_by_type::AzureResourceCreatedByType;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// ARM provenance metadata for a resource's creation and latest modification.
 ///
@@ -20,12 +19,12 @@ pub struct AzureResourceSystemData {
     pub created_by: String,
     pub created_by_type: AzureResourceCreatedByType,
     /// Creation time, represented in UTC.
-    pub created_at: DateTime<Utc>,
+    pub created_at: Timestamp,
     /// Service-provided identity responsible for the latest modification.
     pub last_modified_by: String,
     pub last_modified_by_type: AzureResourceCreatedByType,
     /// Latest modification time, represented in UTC.
-    pub last_modified_at: DateTime<Utc>,
+    pub last_modified_at: Timestamp,
 }
 
 cloud_terrastodon_registry::register_thing!(AzureResourceSystemData);

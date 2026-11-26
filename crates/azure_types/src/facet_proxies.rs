@@ -3,8 +3,6 @@
     reason = "The bool-or-string wire proxy and its Facet-generated sibling items require RawJson for representation selection"
 )]
 
-use chrono::DateTime;
-use chrono::Local;
 use cloud_terrastodon_azure_resource_types::ResourceType;
 use facet::Facet;
 use facet_json::RawJson;
@@ -130,26 +128,6 @@ impl From<OptionalBoolOrStringProxy> for Option<bool> {
 impl From<&Option<bool>> for OptionalBoolOrStringProxy {
     fn from(value: &Option<bool>) -> Self {
         Self(*value)
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Facet)]
-#[facet(transparent)]
-pub struct LocalDateTimeEpochSecondsProxy(i64);
-
-impl TryFrom<LocalDateTimeEpochSecondsProxy> for DateTime<Local> {
-    type Error = String;
-
-    fn try_from(value: LocalDateTimeEpochSecondsProxy) -> Result<Self, Self::Error> {
-        let datetime = DateTime::from_timestamp(value.0, 0)
-            .ok_or_else(|| "invalid or out-of-range datetime".to_string())?;
-        Ok(datetime.with_timezone(&Local))
-    }
-}
-
-impl From<&DateTime<Local>> for LocalDateTimeEpochSecondsProxy {
-    fn from(value: &DateTime<Local>) -> Self {
-        Self(value.timestamp())
     }
 }
 

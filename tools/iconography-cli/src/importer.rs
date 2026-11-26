@@ -7,11 +7,11 @@ use crate::generation;
 use crate::public_asset_download::download;
 use crate::source_discovery::resolve_sources;
 use crate::validation::validate_svg;
-use chrono::Utc;
 use cloud_terrastodon_app::CancellationScope;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::ensure;
+use jiff::Timestamp;
 use reqwest::Client;
 use sha2::Digest;
 use sha2::Sha256;
@@ -62,7 +62,7 @@ pub async fn update(
     cancellation.bail_if_cancelled()?;
     let sources = resolve_sources(family, &selected, &client, cancellation).await?;
     let mut files = Vec::new();
-    let retrieved_at = Utc::now();
+    let retrieved_at = Timestamp::now();
 
     for entry in &mut catalogue.icons {
         cancellation.bail_if_cancelled()?;

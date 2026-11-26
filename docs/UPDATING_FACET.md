@@ -13,6 +13,38 @@ registry dependencies. Both graphs must keep interacting Facet traits and shapes
 on one compatible core package identity. Run checks with `--offline --locked`
 after resolving the graph being tested.
 
+## Jiff 1 release (2026-11-26)
+
+Cloud Terrastodon uses `facet/jiff` for Jiff 1 timestamps. The workspace
+resolves the compatible releases below through crates.io. Their exact pins
+keep Facet JSON, Figue, Cancellation, and Tracing on the same Core and
+reflection packages.
+
+| Package group | Release version |
+| --- | --- |
+| Core, Path, Reflect, Solver, Pretty, Dessert, DOM | `0.50.0-rc.9` |
+| Facet facade, Error, Default | `0.50.0-rc.11` |
+| Format, Value | `0.50.0-rc.12` |
+| JSON, CSV | `0.50.0-rc.13` |
+| XML, XML Node | `0.50.0-rc.10` |
+| Figue | `6.0.0-rc.9` |
+| Figue Attrs | `6.0.0-rc.7` |
+| Cancellation | `0.8.4` |
+| Tracing | `0.3.1` |
+
+The 18 Facet and Figue packages passed Cargo's package verification before
+publication. Their registry archives record the clean release commits for
+[Facet](https://github.com/TeamDman/facet/commit/f570b6e2eefe888b870242836ea40c13e08d5a5f),
+[Facet-format](https://github.com/TeamDman/facet-format/commit/1f4ea72eb05e178a8e80b3232022cf9f13f693a2),
+and [Figue](https://github.com/TeamDman/figue/commit/080d35448b8a5e0af3e2d0052f802b9f289760e5).
+The [Cancellation release](https://github.com/TeamDman/teamy-cancellation/commit/0a71a7ba79929740197803c276e802efa340b74b)
+and [Tracing release](https://github.com/TeamDman/teamy-tracing/commit/0e8b3b11d4fee4f26fec77154a458cc368dee2b5)
+use the same Facet packages. CT's lockfile resolves one identity per Facet
+package and Jiff `1.0.3`, with no Cargo patches or Chrono dependency.
+
+The locked Windows workspace check passed with all features and targets. A
+fresh build rendered `account login --help` using the published Figue library.
+
 ## Borrowed path proxy release (2026-11-17)
 
 Cloud Terrastodon adopted the registry family below without root Cargo patches.

@@ -8,8 +8,6 @@ use crate::portal_resource_scope::PortalResourceScope;
 use crate::portal_scope_view::PortalScopeView;
 use crate::portal_tab_open::PortalTabOpen;
 use crate::portal_tab_target::PortalTabTarget;
-use chrono::Local;
-use chrono::Utc;
 use eframe::egui::Atom;
 use eframe::egui::Button;
 use eframe::egui::Image;
@@ -18,6 +16,8 @@ use eframe::egui::ScrollArea;
 use eframe::egui::Ui;
 use eframe::egui::Vec2;
 use itertools::Itertools;
+use jiff::Timestamp;
+use jiff::tz::TimeZone;
 
 impl MyApp {
     pub(crate) fn record_portal_visit(&mut self) {
@@ -51,7 +51,7 @@ impl MyApp {
         self.portal_history.record(PortalHistoryEntry {
             target,
             title,
-            visited_at: Utc::now(),
+            visited_at: Timestamp::now(),
             resource_kind,
             authentication,
         });
@@ -67,12 +67,14 @@ impl MyApp {
             .id_salt("portal_history")
             .show(ui, |ui| {
                 let mut target = None;
+                let zone = TimeZone::system();
                 for (day, entries) in &entries
                     .into_iter()
-                    .chunk_by(|entry| entry.visited_at.with_timezone(&Local).date_naive())
+                    .map(|entry| (entry.visited_at.to_zoned_datetime(zone.clone()), entry))
+                    .chunk_by(|(time, _)| time.date())
                 {
-                    ui.label(RichText::new(day.format("%A, %B %-d, %Y").to_string()).strong());
-                    for entry in entries {
+                    ui.label(RichText::new(day.strftime("%A, %B %-d, %Y").to_string()).strong());
+                    for (time, entry) in entries {
                         let icon = entry
                             .resource_kind
                             .as_ref()
@@ -82,13 +84,12 @@ impl MyApp {
                         } else {
                             entry.title.as_str()
                         };
-                        let time = entry.visited_at.with_timezone(&Local).format("%H:%M:%S");
                         let button = Button::new((
                             Image::new(icon).fit_to_exact_size(Vec2::splat(16.0)),
                             title,
                             Atom::grow(),
                         ))
-                        .right_text(RichText::new(time.to_string()).weak())
+                        .right_text(RichText::new(time.strftime("%H:%M:%S").to_string()).weak())
                         .min_size(Vec2::new(ui.available_width(), 30.0))
                         .frame_when_inactive(false)
                         .truncate();

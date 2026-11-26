@@ -118,7 +118,7 @@ mod tests {
             app_role_assignment_required: false,
             app_roles: Vec::new(),
             application_template_id: None,
-            created_date_time: chrono::DateTime::from_timestamp(1_700_000_000, 0)
+            created_date_time: jiff::Timestamp::new(1_700_000_000, 0)
                 .expect("fixture timestamp should be valid"),
             deleted_date_time: None,
             description: None,

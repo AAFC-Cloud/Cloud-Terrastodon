@@ -22,7 +22,7 @@ impl StorageExplorerContainerRow {
             name: escape_display(container.name.as_str()),
             last_modified: properties
                 .last_modified_time
-                .format("%Y-%m-%d %H:%M:%S UTC")
+                .strftime("%Y-%m-%d %H:%M:%S UTC")
                 .to_string(),
             anonymous_access: match &properties.public_access {
                 AzureStorageAccountBlobContainerPublicAccess::None => "Private".into(),

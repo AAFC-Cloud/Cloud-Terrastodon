@@ -145,8 +145,8 @@ fn submit_scope_activity(
     let utc_window = request.as_ref().ok().map(|request| {
         format!(
             "{} to {} UTC",
-            request.from.format("%F %H:%M"),
-            request.until.format("%F %H:%M")
+            request.from.strftime("%F %H:%M"),
+            request.until.strftime("%F %H:%M")
         )
     });
     app.azure.scope_activity.insert(

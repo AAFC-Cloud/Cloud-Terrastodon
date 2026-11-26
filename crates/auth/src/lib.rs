@@ -33,7 +33,6 @@ mod azure_cli_sign_in_mode;
 mod azure_cli_sign_in_process;
 mod azure_devops_pat;
 mod azure_devops_rest_client;
-mod azure_token_cache;
 mod browser_access_token;
 mod browser_authorization_callback_listener;
 mod browser_authorization_callback_response;
@@ -71,8 +70,6 @@ pub use azure_cli_account_name::AzureCliAccountName;
 pub(crate) use azure_cli_sessions::AzureCliSessions;
 pub use azure_devops_pat::*;
 pub use azure_devops_rest_client::*;
-#[expect(unused_imports)]
-pub use azure_token_cache::*;
 pub use browser_session::BrowserSession;
 pub use browser_token_cache::BrowserTokenCache;
 pub use credential_authentication_provider::CredentialAuthenticationProvider;

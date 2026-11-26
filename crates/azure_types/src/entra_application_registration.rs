@@ -2,9 +2,8 @@ use crate::ArbitraryJson;
 use crate::EntraApplicationClientId;
 use crate::entra_application_object_id::EntraApplicationObjectId;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -16,7 +15,7 @@ pub struct EntraApplicationRegistration {
     pub app_id: EntraApplicationClientId,
     pub application_template_id: Option<Uuid>,
     pub app_roles: Vec<ArbitraryJson>,
-    pub created_date_time: Option<DateTime<Utc>>,
+    pub created_date_time: Option<Timestamp>,
     pub default_redirect_uri: Option<String>,
     pub description: Option<String>,
     pub disabled_by_microsoft_status: Option<String>,

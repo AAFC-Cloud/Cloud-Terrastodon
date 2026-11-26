@@ -24,9 +24,8 @@ use crate::AzureStorageAccountSasPolicy;
 use crate::AzureStorageAccountSkuConversionStatus;
 use crate::AzureStorageAccountStatus;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// Storage account properties, including access controls and service configuration.
 ///
@@ -56,7 +55,7 @@ pub struct AzureStorageAccountProperties {
         Option<AzureStorageAccountAzureFilesIdentityBasedAuthentication>,
     /// Included by the ARM get-properties API when requested using `$expand`.
     pub blob_restore_status: Option<AzureStorageAccountBlobRestoreStatus>,
-    pub creation_time: Option<DateTime<Utc>>,
+    pub creation_time: Option<Timestamp>,
     pub custom_domain: Option<AzureStorageAccountCustomDomain>,
     #[facet(rename = "defaultToOAuthAuthentication")]
     pub default_to_oauth_authentication: Option<bool>,
@@ -82,7 +81,7 @@ pub struct AzureStorageAccountProperties {
     pub key_policy: Option<AzureStorageAccountKeyPolicy>,
     pub large_file_shares_state: Option<AzureStorageAccountLargeFileSharesState>,
     /// Absent when no failover has occurred or the account has no geo-redundancy.
-    pub last_geo_failover_time: Option<DateTime<Utc>>,
+    pub last_geo_failover_time: Option<Timestamp>,
     pub minimum_tls_version: Option<AzureStorageAccountMinimumTlsVersion>,
     pub network_acls: Option<AzureStorageAccountNetworkRuleSet>,
     pub primary_endpoints: Option<AzureStorageAccountEndpoints>,

@@ -28,7 +28,6 @@ facet.workspace = true
 facet-json.workspace = true
 tempfile.workspace = true
 tracing.workspace = true
-chrono.workspace = true
 humantime.workspace = true
 bstr.workspace = true
 compact_str.workspace=true

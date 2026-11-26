@@ -5,10 +5,9 @@ use crate::EntraGroupId;
 use crate::EntraUserId;
 use crate::all_or::AllOr;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use compact_str::CompactString;
 use facet::Facet;
+use jiff::Timestamp;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
@@ -17,10 +16,10 @@ pub struct ConditionalAccessPolicy {
     pub id: ConditionalAccessPolicyId,
     pub template_id: Option<ArbitraryJson>,
     pub display_name: CompactString,
-    pub created_date_time: Option<DateTime<Utc>>,
-    pub modified_date_time: Option<DateTime<Utc>>,
+    pub created_date_time: Option<Timestamp>,
+    pub modified_date_time: Option<Timestamp>,
     pub state: ConditionalAccessPolicyState,
-    pub deleted_date_time: Option<DateTime<Utc>>,
+    pub deleted_date_time: Option<Timestamp>,
     pub partial_enablement_strategy: Option<ArbitraryJson>,
     pub session_controls: Option<ArbitraryJson>,
     pub conditions: ConditionalAccessPolicyConditions,

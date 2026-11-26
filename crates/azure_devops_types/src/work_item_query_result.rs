@@ -5,9 +5,8 @@ use crate::WorkItemLink;
 use crate::WorkItemQuerySortColumn;
 use crate::WorkItemReference;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// The result of a work item query.
 /// https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-id?view=azure-devops-rest-7.1
@@ -17,7 +16,7 @@ use facet::Facet;
 #[facet(rename_all = "camelCase")]
 pub struct WorkItemQueryResult {
     /// The date the query was run in the context of.
-    pub as_of: DateTime<Utc>,
+    pub as_of: Timestamp,
     /// The columns of the query.
     pub columns: Vec<WorkItemFieldReference>,
     /// The result type, omitted in the documented WIQL flat-query example.

@@ -1,5 +1,3 @@
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
@@ -14,6 +12,7 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::ensure;
 use facet::Facet;
+use jiff::Timestamp;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::error;
@@ -48,7 +47,7 @@ pub struct AzureDevOpsWorkItemCopyArgs {
     pub keep_external_relations: bool,
     /// Source snapshot timestamp; defaults to the current UTC time.
     #[facet(figue::named)]
-    pub as_of: Option<DateTime<Utc>>,
+    pub as_of: Option<Timestamp>,
     /// Print the complete plan without any writes.
     #[facet(figue::named, default)]
     pub dry_run: bool,

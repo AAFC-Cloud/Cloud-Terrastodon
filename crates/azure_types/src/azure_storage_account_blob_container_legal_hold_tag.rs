@@ -2,9 +2,8 @@ use crate::AzureTenantId;
 use crate::EntraUserId;
 use crate::UserPrincipalName;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// An individual legal-hold tag and the identity that added it.
 ///
@@ -16,7 +15,7 @@ use facet::Facet;
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureStorageAccountBlobContainerLegalHoldTag {
     pub tag: String,
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: Timestamp,
     pub object_identifier: EntraUserId,
     pub tenant_id: AzureTenantId,
     /// Not included in the official tag examples.

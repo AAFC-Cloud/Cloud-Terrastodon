@@ -23,6 +23,7 @@ use crossterm::event::KeyEventKind;
 use crossterm::event::KeyModifiers;
 use eyre::Context;
 use eyre::Result;
+use jiff::Timestamp;
 use ratatui::Frame;
 use ratatui::text::Line;
 use ratatui::widgets::Block;
@@ -347,7 +348,7 @@ impl ExcalidrawInteractiveSession {
         self.pending_test_status = Some(format!(
             "Space pressed {} — {}",
             self.test_changes,
-            chrono::Utc::now().format("%H:%M:%S UTC"),
+            Timestamp::now().strftime("%H:%M:%S UTC"),
         ));
         tracing::debug!(change = self.test_changes, "Preparing live reload test");
         tracing::info!(

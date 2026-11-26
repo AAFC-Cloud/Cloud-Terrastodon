@@ -23,7 +23,7 @@ cloud_terrastodon_auth_cli.workspace = true
 cloud_terrastodon_rest.workspace = true
 cloud_terrastodon_user_input.workspace = true
 
-chrono.workspace = true
+jiff.workspace = true
 color-eyre.workspace = true
 eyre.workspace = true
 facet.workspace = true

@@ -2,14 +2,13 @@ use crate::EntraUserExternalUserState;
 use crate::UserPrincipalName;
 use crate::user_id::EntraUserId;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_hcl_types::AzureAdResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// A Microsoft Graph v1.0 [Entra user](https://learn.microsoft.com/en-us/graph/api/resources/user?view=graph-rest-1.0).
 #[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
@@ -21,7 +20,7 @@ pub struct EntraUser {
     #[facet(rename = "externalUserState")]
     pub external_user_state: Option<EntraUserExternalUserState>,
     #[facet(rename = "externalUserStateChangeDateTime")]
-    pub external_user_state_change_date_time: Option<DateTime<Utc>>,
+    pub external_user_state_change_date_time: Option<Timestamp>,
     #[facet(rename = "givenName")]
     pub given_name: Option<String>,
     pub id: EntraUserId,

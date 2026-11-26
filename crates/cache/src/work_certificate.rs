@@ -42,8 +42,7 @@ mod tests {
     use crate::artifact_age::ArtifactAge;
     use crate::work_attempt_guard::WorkAttemptGuard;
     use crate::work_child_guard::WorkChildGuard;
-    use chrono::TimeDelta;
-    use chrono::Utc;
+    use jiff::Timestamp;
     use std::time::Instant;
 
     fn identity(name: &str) -> CacheEntryIdentity {
@@ -57,11 +56,7 @@ mod tests {
 
     fn age(elapsed: Duration, validity: Duration) -> ArtifactAge {
         ArtifactAge {
-            freshness: ArtifactFreshness::new(
-                Utc::now() - TimeDelta::from_std(elapsed).unwrap(),
-                validity,
-            )
-            .unwrap(),
+            freshness: ArtifactFreshness::new(Timestamp::now() - elapsed, validity).unwrap(),
             initial_age: Duration::ZERO,
             anchored_at: Instant::now() - elapsed,
         }
@@ -92,7 +87,7 @@ mod tests {
 
         // Forty-five seconds after assembly, the fresh parent is still within
         // its minute, but the original child has exhausted that same bound.
-        let wall = Utc::now() + TimeDelta::seconds(45);
+        let wall = Timestamp::now() + Duration::from_secs(45);
         let monotonic = Instant::now() + Duration::from_secs(45);
         assert!(certificate.own.age.reusable(
             &certificate.own.age.freshness,
@@ -139,7 +134,7 @@ mod tests {
         )?;
         assert!(certificate.is_reusable(&*cache.lock_state()?));
 
-        let wall = Utc::now() + TimeDelta::seconds(45);
+        let wall = Timestamp::now() + Duration::from_secs(45);
         let monotonic = Instant::now() + Duration::from_secs(45);
         assert!(original.own.age.reusable(
             &original.own.age.freshness,

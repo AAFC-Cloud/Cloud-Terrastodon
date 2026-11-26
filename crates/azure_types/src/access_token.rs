@@ -1,8 +1,8 @@
+use crate::AzureUnixTimestampSecondsProxy;
 use crate::SubscriptionId;
 use crate::tenant_id::AzureTenantId;
-use chrono::DateTime;
-use chrono::Local;
 use facet::Facet;
+use jiff::Timestamp;
 use std::fmt::Debug;
 
 #[derive(Clone, PartialEq, Facet)]
@@ -10,8 +10,8 @@ pub struct AzureAccessToken<T> {
     #[facet(rename = "accessToken")]
     #[facet(sensitive)]
     pub access_token: T,
-    #[facet(proxy = crate::LocalDateTimeEpochSecondsProxy)]
-    pub expires_on: DateTime<Local>,
+    #[facet(proxy = AzureUnixTimestampSecondsProxy)]
+    pub expires_on: Timestamp,
     pub subscription: Option<SubscriptionId>,
     pub tenant: AzureTenantId,
     #[facet(rename = "tokenType")]

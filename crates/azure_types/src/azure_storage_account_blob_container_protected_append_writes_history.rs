@@ -1,7 +1,6 @@
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// Protected append-write settings recorded for a legal hold.
 ///
@@ -13,7 +12,7 @@ use facet::Facet;
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureStorageAccountBlobContainerProtectedAppendWritesHistory {
     pub allow_protected_append_writes_all: bool,
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: Timestamp,
 }
 
 cloud_terrastodon_registry::register_thing!(

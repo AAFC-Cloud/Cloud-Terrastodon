@@ -1,7 +1,4 @@
 use crate::azure_devops_audit_summary::AzureDevOpsAuditSummary;
-use chrono::Local;
-use chrono::TimeDelta;
-use chrono::Utc;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::EntraUserListRequest;
@@ -19,7 +16,11 @@ use cloud_terrastodon_azure_devops::LastAccessedDate;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ConcurrentIteratorExt;
 use cloud_terrastodon_execution::ExecutableRequest;
+use eyre::WrapErr;
 use itertools::Itertools;
+use jiff::SignedDuration;
+use jiff::Timestamp;
+use jiff::ZonedDateTime;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
@@ -36,9 +37,9 @@ pub async fn audit_azure_devops(
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<CliOutput> {
     let test_license_inactivity_threshold =
-        chrono::Duration::from_std(test_license_inactivity_threshold)?;
+        SignedDuration::try_from(test_license_inactivity_threshold)?;
     let paid_license_inactivity_threshold =
-        chrono::Duration::from_std(paid_license_inactivity_threshold)?;
+        SignedDuration::try_from(paid_license_inactivity_threshold)?;
 
     if !clean {
         warn!("Audit results may use cached data; pass --clean to refresh the audit inventories.");
@@ -67,7 +68,9 @@ pub async fn audit_azure_devops(
 
     // Search User Entitlements reports account creation and last access.
     // Inactivity checks need a known creation date to give new accounts their grace period.
-    let paid_license_cutoff = Utc::now() - paid_license_inactivity_threshold;
+    let paid_license_cutoff = Timestamp::now()
+        .checked_sub(paid_license_inactivity_threshold)
+        .wrap_err("Calculating the paid license inactivity cutoff")?;
     for entitlement in entitlements.iter().filter(|entitlement| {
         entitlement
             .date_created
@@ -101,15 +104,16 @@ pub async fn audit_azure_devops(
             LastAccessedDate::Some(date) if date < paid_license_cutoff => {
                 let msg = format!(
                     "User has not accessed Azure DevOps in the last {} days but has a paid license; consider downgrading license",
-                    paid_license_inactivity_threshold.num_days()
+                    paid_license_inactivity_threshold.as_hours() / 24
                 );
+                let elapsed = Timestamp::now().duration_since(date);
                 warn!(
                     user_display_name = %entitlement.user.display_name,
                     user_principal_name = %entitlement.user.principal_name,
-                    last_accessed_date = %date.to_rfc3339(),
-                    last_accessed_ago = format_duration_human(Utc::now() - date)?,
-                    last_accessed_ago_fr = format_duration_human_fr(Utc::now() - date)?,
-                    last_accessed_ago_days = ((Utc::now() - date).num_days()),
+                    last_accessed_date = %date,
+                    last_accessed_ago = format_duration_human(elapsed)?,
+                    last_accessed_ago_fr = format_duration_human_fr(elapsed)?,
+                    last_accessed_ago_days = elapsed.as_hours() / 24,
                     %license,
                     status = ?entitlement.access_level.status,
                     %cost_per_month_cad,
@@ -155,7 +159,9 @@ pub async fn audit_azure_devops(
     // Identify unused test plan license assignments.
     let test_plan_license =
         AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Advanced);
-    let test_license_cutoff = Utc::now() - test_license_inactivity_threshold;
+    let test_license_cutoff = Timestamp::now()
+        .checked_sub(test_license_inactivity_threshold)
+        .wrap_err("Calculating the test license inactivity cutoff")?;
     let test_plan_licenses = entitlements
         .iter()
         .filter(|entitlement| {
@@ -273,9 +279,13 @@ pub async fn audit_azure_devops(
         .collect::<eyre::Result<HashMap<_, _>>>()?;
 
     // for each license haver, print their projects and the test plans in those projects (plan name, last date)
-    let now = Local::now();
-    let test_license_inactivity_threshold_ago = now - test_license_inactivity_threshold;
-    let basic_license_inactivity_threshold_ago = now - paid_license_inactivity_threshold;
+    let now = ZonedDateTime::now();
+    let test_license_inactivity_threshold_ago = now
+        .checked_sub(test_license_inactivity_threshold)
+        .wrap_err("Calculating the test license inactivity cutoff")?;
+    let basic_license_inactivity_threshold_ago = now
+        .checked_sub(paid_license_inactivity_threshold)
+        .wrap_err("Calculating the paid license inactivity cutoff")?;
     info!(
         ?test_license_inactivity_threshold_ago,
         ?basic_license_inactivity_threshold_ago,
@@ -332,26 +342,27 @@ pub async fn audit_azure_devops(
         }
 
         let license_wasted = last_used
-            .filter(|date| date > &test_license_inactivity_threshold_ago)
+            .filter(|date| *date > test_license_inactivity_threshold_ago.timestamp())
             .is_none();
         if license_wasted {
             let msg = "User has an Advanced license for Test Plans but has not used any test plans; consider downgrading license";
+            let elapsed = last_used.map(|date| Timestamp::now().duration_since(date));
             warn!(
                 user_display_name = %test_plan_entitlement.user.display_name,
                 user_principal_name = %test_plan_entitlement.user.principal_name,
                 last_used = last_used
-                    .map(|date| date.to_string())
+                    .map(|date| format!("{} UTC", date.strftime("%Y-%m-%d %H:%M:%S%.f")))
                     .as_deref()
                     .unwrap_or("never"),
-                last_used_ago = last_used
-                    .map(|date| format_duration_human(Utc::now() - date)).transpose()?
+                last_used_ago = elapsed
+                    .map(format_duration_human).transpose()?
                     .as_deref()
                     .unwrap_or("N/A"),
-                last_used_ago_fr = last_used
-                    .map(|date| format_duration_human_fr(Utc::now() - date)).transpose()?
+                last_used_ago_fr = elapsed
+                    .map(format_duration_human_fr).transpose()?
                     .as_deref()
                     .unwrap_or("N/A"),
-                last_used_ago_days = last_used.map(|date| (Utc::now() - date).num_days()),
+                last_used_ago_days = elapsed.map(|elapsed| elapsed.as_hours() / 24),
                 license = %test_plan_license,
                 status = ?test_plan_entitlement.access_level.status,
                 cost_per_month_cad = %test_plan_license.cost_per_month_cad(),
@@ -389,15 +400,10 @@ pub async fn audit_azure_devops(
 }
 
 /// Format a duration into a human-readable string, granularity limited to days (no minutes or seconds shown)
-fn format_duration_human<T>(duration: T) -> eyre::Result<String>
-where
-    T: TryInto<TimeDelta>,
-    T::Error: std::error::Error + Send + Sync + 'static,
-{
-    let duration = duration.try_into()?;
-    let std_duration = duration.to_std()?;
-    let std_duration = Duration::from_secs(std_duration.as_secs());
-    let mut formatted = humantime::format_duration(std_duration).to_string();
+fn format_duration_human(duration: SignedDuration) -> eyre::Result<String> {
+    let duration = Duration::try_from(duration)?;
+    let duration = Duration::from_secs(duration.as_secs());
+    let mut formatted = humantime::format_duration(duration).to_string();
 
     // Remove seconds if present (ends with 's')
     if formatted.ends_with('s')
@@ -465,11 +471,7 @@ where
     Ok(with_commas)
 }
 
-fn format_duration_human_fr<T>(duration: T) -> eyre::Result<String>
-where
-    T: TryInto<TimeDelta>,
-    T::Error: std::error::Error + Send + Sync + 'static,
-{
+fn format_duration_human_fr(duration: SignedDuration) -> eyre::Result<String> {
     let text = format_duration_human(duration)?;
 
     // Basic, conservative replacements for french words. We replace plurals first
@@ -489,13 +491,13 @@ where
 mod test {
     use crate::audit_azure_devops::format_duration_human;
     use crate::audit_azure_devops::format_duration_human_fr;
-    use chrono::TimeDelta;
+    use jiff::SignedDuration;
 
     #[test]
     pub fn it_works_1() -> eyre::Result<()> {
         let input = "5months 7days 16h 15m 50s 736ms 926us";
         let duration = humantime::parse_duration(input)?;
-        let delta = TimeDelta::from_std(duration)?;
+        let delta = SignedDuration::try_from(duration)?;
         let en = format_duration_human(delta)?;
         let fr = format_duration_human_fr(delta)?;
         println!("{input} -> {duration:?} -> {en}");
@@ -509,7 +511,7 @@ mod test {
         // simple single-unit
         let input = "3days";
         let duration = humantime::parse_duration(input)?;
-        let delta = TimeDelta::from_std(duration)?;
+        let delta = SignedDuration::try_from(duration)?;
         let en = format_duration_human(delta)?;
         let fr = format_duration_human_fr(delta)?;
         println!("{input} -> {duration:?} -> {en}");
@@ -524,7 +526,7 @@ mod test {
         // months + days, extra smaller units should be removed by the formatter
         let input = "3months 2days 16h 15m 50s";
         let duration = humantime::parse_duration(input)?;
-        let delta = TimeDelta::from_std(duration)?;
+        let delta = SignedDuration::try_from(duration)?;
         let en = format_duration_human(delta)?;
         let fr = format_duration_human_fr(delta)?;
         println!("{input} -> {duration:?} -> {en}");
@@ -538,7 +540,7 @@ mod test {
     pub fn it_works_4() -> eyre::Result<()> {
         let input = "3months 12days 5h";
         let duration = humantime::parse_duration(input)?;
-        let delta = TimeDelta::from_std(duration)?;
+        let delta = SignedDuration::try_from(duration)?;
         let en = format_duration_human(delta)?;
         let fr = format_duration_human_fr(delta)?;
         println!("{input} -> {duration:?} -> {en}");

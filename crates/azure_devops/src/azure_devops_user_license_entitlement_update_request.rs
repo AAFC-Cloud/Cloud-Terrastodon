@@ -239,14 +239,14 @@ mod tests {
             }
 
             assert!(
-                (946_684_800..=4_102_444_799).contains(&response.date_created.unwrap().timestamp())
+                (946_684_800..=4_102_444_799).contains(&response.date_created.unwrap().as_second())
             );
             match response.last_accessed_date {
                 LastAccessedDate::Never => saw_never_accessed = true,
                 LastAccessedDate::Some(date) => {
                     saw_accessed = true;
                     assert!(date >= response.date_created.unwrap());
-                    assert!(date.timestamp() <= 4_102_444_799);
+                    assert!(date.as_second() <= 4_102_444_799);
                 }
             }
         }

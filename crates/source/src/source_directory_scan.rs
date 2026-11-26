@@ -218,7 +218,7 @@ fn repository_at(
         .strict_config(true)
         .open(path)
     {
-        Ok(repository) => repository.to_thread_local(),
+        Ok(repository) => repository,
         Err(error) => {
             issues.push(SourceHuntIssue {
                 path: path.to_owned(),
@@ -231,7 +231,7 @@ fn repository_at(
     // Isolated opening reads repository-local configuration only. Snapshot
     // lookups neither invoke credential helpers nor contact remote transports.
     // They retain opaque configured strings and avoid insteadOf rewriting.
-    // https://docs.rs/gix/0.84.0/gix/open/struct.Options.html#method.isolated
+    // https://docs.rs/gix/0.91.0/gix/open/struct.Options.html#method.isolated
     let config = repository.config_snapshot();
     let mut remotes = BTreeMap::new();
     if let Some(sections) = config.sections_by_name("remote") {

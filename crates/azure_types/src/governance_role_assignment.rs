@@ -1,7 +1,6 @@
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 /// See the following:
 /// - https://graph.microsoft.com/v1.0/$metadata
 /// - https://graph.microsoft.com/beta/$metadata
@@ -37,9 +36,9 @@ pub struct GovernanceRoleAssignment {
     #[facet(rename = "roleDefinitionId")]
     pub role_definition_id: Uuid,
     #[facet(rename = "startDateTime", default)]
-    pub start_date_time: Option<DateTime<Utc>>,
+    pub start_date_time: Option<Timestamp>,
     #[facet(rename = "endDateTime", default)]
-    pub end_date_time: Option<DateTime<Utc>>,
+    pub end_date_time: Option<Timestamp>,
     pub status: GovernanceRoleAssignmentStatus,
     #[facet(rename = "subjectId")]
     pub subject_id: Uuid,

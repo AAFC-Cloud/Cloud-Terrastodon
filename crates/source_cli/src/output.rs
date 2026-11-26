@@ -69,8 +69,8 @@ pub(super) fn write_hunt_report(
                     terminal_text(&author.name),
                     terminal_text(&author.email),
                     author.commit_count,
-                    author.first_commit_at.to_rfc3339(),
-                    author.last_commit_at.to_rfc3339(),
+                    author.first_commit_at.strftime("%Y-%m-%dT%H:%M:%S%:z"),
+                    author.last_commit_at.strftime("%Y-%m-%dT%H:%M:%S%:z"),
                 )?;
             }
         } else {

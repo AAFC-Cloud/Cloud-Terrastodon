@@ -2,9 +2,8 @@ use crate::AzureDevOpsBuildFolderPath;
 use crate::AzureDevOpsIdentityReference;
 use crate::AzureDevOpsProjectReference;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// A build-definition folder. The required path identifies the folder;
 /// Azure DevOps uses backslash-separated paths, with `\` representing root.
@@ -21,10 +20,10 @@ pub struct AzureDevOpsBuildFolder {
     pub project: Option<AzureDevOpsProjectReference>,
     /// The person or process that created the folder, when returned by the service.
     pub created_by: Option<AzureDevOpsIdentityReference>,
-    pub created_on: Option<DateTime<Utc>>,
+    pub created_on: Option<Timestamp>,
     /// The person or process that last changed the folder.
     pub last_changed_by: Option<AzureDevOpsIdentityReference>,
-    pub last_changed_date: Option<DateTime<Utc>>,
+    pub last_changed_date: Option<Timestamp>,
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuildFolder);

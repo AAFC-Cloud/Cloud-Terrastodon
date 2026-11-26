@@ -31,7 +31,7 @@ cloud_terrastodon_iconography_azure = { workspace = true, features = ["all", "re
 cloud_terrastodon_pathing.workspace = true
 cloud_terrastodon_user_input.workspace = true
 cloud_terrastodon_zombies.workspace = true
-chrono.workspace = true
+jiff.workspace = true
 crossterm.workspace = true
 eframe.workspace = true
 egui_extras = { workspace = true, features = ["svg"] }

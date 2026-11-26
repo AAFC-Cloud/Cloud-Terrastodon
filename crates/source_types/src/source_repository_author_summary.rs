@@ -1,7 +1,6 @@
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// Commits attributed to one exact Git author name and email pair.
 ///
@@ -12,8 +11,8 @@ use facet::Facet;
 pub struct SourceRepositoryAuthorSummary {
     pub name: String,
     pub email: String,
-    pub first_commit_at: DateTime<Utc>,
-    pub last_commit_at: DateTime<Utc>,
+    pub first_commit_at: Timestamp,
+    pub last_commit_at: Timestamp,
     pub commit_count: u64,
 }
 
@@ -21,11 +20,11 @@ impl<'a> Arbitrary<'a> for SourceRepositoryAuthorSummary {
     fn arbitrary(input: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let identity: u64 = input.arbitrary()?;
         let commit_count = input.int_in_range(1..=1_000_000)?;
-        let first = DateTime::<Utc>::arbitrary(input)?;
+        let first = Timestamp::arbitrary(input)?;
         let last = if commit_count == 1 {
             first
         } else {
-            DateTime::<Utc>::arbitrary(input)?
+            Timestamp::arbitrary(input)?
         };
         Ok(Self {
             name: format!("Author {identity}"),

@@ -1,6 +1,5 @@
-use chrono::DateTime;
-use chrono::Local;
-use chrono::Utc;
+use jiff::Timestamp;
+use jiff::tz::TimeZone;
 use std::sync::LazyLock;
 use std::sync::Mutex;
 
@@ -17,7 +16,7 @@ impl std::fmt::Display for BuildTimestamp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Some(timestamp) = self
             .0
-            .and_then(|timestamp| DateTime::<Utc>::from_timestamp(timestamp, 0))
+            .and_then(|timestamp| Timestamp::from_second(timestamp).ok())
         else {
             return f.write_str("unknown build time");
         };
@@ -26,8 +25,8 @@ impl std::fmt::Display for BuildTimestamp {
             f,
             "{}",
             timestamp
-                .with_timezone(&Local)
-                .format("%Y-%m-%d %H:%M:%S %Z")
+                .to_zoned_datetime(TimeZone::system())
+                .strftime("%Y-%m-%d %H:%M:%S %:z")
         )
     }
 }

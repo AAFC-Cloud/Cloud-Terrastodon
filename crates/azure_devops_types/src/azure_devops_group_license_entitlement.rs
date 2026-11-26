@@ -1,10 +1,9 @@
 use crate::AzureDevOpsDescriptor;
 use crate::AzureDevOpsLicenseRule;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use facet::Facet;
+use jiff::Timestamp;
 use uuid::Uuid;
 
 #[derive(Debug, Facet, Arbitrary)]
@@ -13,7 +12,7 @@ pub struct AzureDevOpsGroupLicenseEntitlement {
     pub extension_rules: Vec<ArbitraryJson>,
     pub group: AzureDevOpsGroupLicenseEntitlementGroupReference,
     pub id: Uuid,
-    pub last_executed: DateTime<Utc>,
+    pub last_executed: Timestamp,
     pub license_rule: AzureDevOpsLicenseRule,
     pub members: Option<ArbitraryJson>,
     pub project_entitlements: Vec<ArbitraryJson>,

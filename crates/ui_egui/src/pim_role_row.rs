@@ -2,8 +2,6 @@ use crate::pim_activation_assignment::PimActivationAssignment;
 use crate::pim_assignment_status::PimAssignmentStatus;
 use crate::pim_entra_role_assignment::PimEntraRoleAssignment;
 use crate::portal_tab_target::PortalTabTarget;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure::GovernanceRoleAssignmentMemberType;
 use cloud_terrastodon_azure::GovernanceRoleAssignmentState;
 use cloud_terrastodon_azure::RoleEligibilitySchedule;
@@ -11,6 +9,7 @@ use cloud_terrastodon_azure::RoleEligibilityScheduleMemberType;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::ScopeImpl;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// A role inventory row with a stable service identity and an index back to its assignment.
 #[derive(Facet)]
@@ -22,13 +21,13 @@ pub(crate) struct PimRoleRow {
     pub scope_target: Option<PortalTabTarget>,
     pub scope_type: String,
     pub membership: &'static str,
-    pub end: Option<DateTime<Utc>>,
+    pub end: Option<Timestamp>,
     pub condition: Option<String>,
     pub action: &'static str,
 }
 
 impl PimRoleRow {
-    pub fn entra_status(item: &PimEntraRoleAssignment, now: DateTime<Utc>) -> PimAssignmentStatus {
+    pub fn entra_status(item: &PimEntraRoleAssignment, now: Timestamp) -> PimAssignmentStatus {
         let row = &item.assignment;
         let status = match row.assignment_state {
             GovernanceRoleAssignmentState::Eligible => PimAssignmentStatus::Eligible,
@@ -63,7 +62,7 @@ impl PimRoleRow {
         }
     }
 
-    pub fn azure_status(item: &RoleEligibilitySchedule, now: DateTime<Utc>) -> PimAssignmentStatus {
+    pub fn azure_status(item: &RoleEligibilitySchedule, now: Timestamp) -> PimAssignmentStatus {
         PimAssignmentStatus::Eligible.at(
             now,
             Some(item.properties.start_date_time),

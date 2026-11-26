@@ -531,7 +531,7 @@ fn render_provenance(family: IconFamily, entries: &[&IconCatalogueEntry]) -> Str
         ));
         output.push_str(&format!("- Category feature: `{}`\n- Packaged file: `svg/{}`\n- Upstream logical name: `{}`\n- Source URL: <{}>\n- Discovery URL: <{}>\n- SHA-256: `{}`\n- Retrieved at (UTC): `{}`\n- Artwork terms: <{}>\n",
             markdown(&entry.category), markdown(&entry.file), markdown(&entry.logical_name), entry.source_url,
-            entry.discovery_url, entry.sha256, entry.retrieved_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true), entry.terms_url));
+            entry.discovery_url, entry.sha256, format_args!("{:.0}", entry.retrieved_at), entry.terms_url));
         if !entry.resource_types.is_empty() {
             let mut aliases = entry
                 .resource_types
@@ -566,8 +566,8 @@ mod tests {
     use crate::IconCatalogue;
     use crate::IconCatalogueEntry;
     use crate::IconFamily;
-    use chrono::DateTime;
     use eyre::Result;
+    use jiff::Timestamp;
     use sha2::Digest;
     use sha2::Sha256;
     use std::fs;
@@ -608,7 +608,7 @@ mod tests {
                 logical_name: variant.into(),
                 discovery_url: "https://example.com/manifest".parse()?,
                 sha256: format!("{:x}", Sha256::digest(svg)),
-                retrieved_at: DateTime::from_timestamp(0, 0).unwrap(),
+                retrieved_at: Timestamp::UNIX_EPOCH,
                 terms_url: "https://example.com/terms".parse()?,
                 resource_types: Vec::new(),
             });

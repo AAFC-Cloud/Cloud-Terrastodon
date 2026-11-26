@@ -13,7 +13,6 @@ use crate::reflected_table::ReflectedTable;
 use crate::reflected_table_column::ReflectedTableColumn;
 use crate::scope_navigation::navigation_tile;
 use crate::sidebar_expansion_toggle::sidebar_expansion_toggle;
-use chrono::Utc;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_command::app_work::Loadable;
 use eframe::egui::CentralPanel;
@@ -27,6 +26,7 @@ use eframe::egui::Panel;
 use eframe::egui::RichText;
 use eframe::egui::Ui;
 use eframe::egui::Vec2;
+use jiff::Timestamp;
 use std::collections::HashMap;
 use teamy_tracing::gui::DiagnosticReportView;
 
@@ -131,7 +131,7 @@ fn show_pim_roles(app: &mut MyApp, ui: &mut Ui, page: PortalPage) {
         return;
     }
     app.load_pim_roles(page, false);
-    let now = Utc::now();
+    let now = Timestamp::now();
     let id = ui.make_persistent_id((page.title(), app.azure.account_generation));
     let mut activation = None;
     let navigation = match page {

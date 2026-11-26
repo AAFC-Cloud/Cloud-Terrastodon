@@ -2,9 +2,8 @@ use crate::ArbitraryJson;
 use crate::EntraApplicationClientId;
 use crate::EntraServicePrincipalObjectId;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
@@ -20,7 +19,7 @@ pub struct EntraServicePrincipal {
     pub app_role_assignment_required: bool,
     pub app_roles: Vec<ArbitraryJson>,
     pub application_template_id: Option<Uuid>,
-    pub created_date_time: DateTime<Utc>,
+    pub created_date_time: Timestamp,
     pub deleted_date_time: Option<ArbitraryJson>,
     pub description: Option<String>,
     pub disabled_by_microsoft_status: Option<ArbitraryJson>,
@@ -52,9 +51,9 @@ pub struct EntraServicePrincipal {
 #[facet(rename_all = "camelCase")]
 pub struct ServicePrincipalPasswordCredential {
     pub custom_key_identifier: Option<ArbitraryJson>,
-    pub end_date_time: DateTime<Utc>,
+    pub end_date_time: Timestamp,
     pub key_id: Uuid,
-    pub start_date_time: DateTime<Utc>,
+    pub start_date_time: Timestamp,
     pub secret_text: Option<String>,
     pub hint: Option<String>,
     pub display_name: Option<String>,
@@ -64,9 +63,9 @@ pub struct ServicePrincipalPasswordCredential {
 #[facet(rename_all = "camelCase")]
 pub struct ServicePrincipalKeyCredential {
     pub custom_key_identifier: Option<String>,
-    pub end_date_time: DateTime<Utc>,
+    pub end_date_time: Timestamp,
     pub key_id: Uuid,
-    pub start_date_time: DateTime<Utc>,
+    pub start_date_time: Timestamp,
     #[facet(rename = "type")]
     pub kind: String,
     pub usage: String,

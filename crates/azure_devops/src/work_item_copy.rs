@@ -4,13 +4,12 @@ use crate::azure_devops_work_item_copy_node::AzureDevOpsWorkItemCopyNode;
 use crate::azure_devops_work_item_copy_omission::AzureDevOpsWorkItemCopyOmission;
 use crate::azure_devops_work_item_copy_options::AzureDevOpsWorkItemCopyOptions;
 use crate::azure_devops_work_item_copy_plan::AzureDevOpsWorkItemCopyPlan;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure_devops_types::*;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::ensure;
+use jiff::Timestamp;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
@@ -135,7 +134,7 @@ pub fn build_work_item_copy_plan(
     project: &AzureDevOpsProjectArgument<'_>,
     root: AzureDevOpsWorkItemId,
     options: &AzureDevOpsWorkItemCopyOptions,
-    as_of: DateTime<Utc>,
+    as_of: Timestamp,
     source: Vec<AzureDevOpsWorkItem>,
     definitions: &[AzureDevOpsWorkItemFieldDefinition],
     type_fields: &BTreeMap<AzureDevOpsWorkItemType, Vec<AzureDevOpsWorkItemTypeField>>,

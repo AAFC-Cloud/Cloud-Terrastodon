@@ -177,7 +177,7 @@ mod tests {
             name: format!("Synthetic pipeline {id}").parse().unwrap(),
             path: path.parse().unwrap(),
             uri: AzureDevOpsBuildDefinitionUri::new(id),
-            created_date: chrono::DateTime::UNIX_EPOCH,
+            created_date: jiff::Timestamp::UNIX_EPOCH,
             revision: None,
             quality: None,
             authored_by: None,

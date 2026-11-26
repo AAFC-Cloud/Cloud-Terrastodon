@@ -1,10 +1,9 @@
 use crate::portal_page::PortalPage;
 use crate::portal_tab_target::PortalTabTarget;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::ResourceType;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// A visit recorded across tabs. Azure pages can be reopened under the
 /// authentication selection that was active when they were visited.
@@ -12,7 +11,7 @@ use facet::Facet;
 pub(crate) struct PortalHistoryEntry {
     pub target: PortalTabTarget,
     pub title: String,
-    pub visited_at: DateTime<Utc>,
+    pub visited_at: Timestamp,
     pub resource_kind: Option<ResourceType>,
     pub authentication: Option<AzureBearerAuthenticationSelection>,
 }

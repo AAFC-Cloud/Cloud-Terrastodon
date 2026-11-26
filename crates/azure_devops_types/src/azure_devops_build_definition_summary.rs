@@ -7,9 +7,8 @@ use crate::AzureDevOpsBuildDefinitionUrl;
 use crate::AzureDevOpsBuildFolderPath;
 use crate::AzureDevOpsProjectReference;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// A possibly shallow definition reference embedded in a build response.
 ///
@@ -24,7 +23,7 @@ pub struct AzureDevOpsBuildDefinitionSummary {
     pub name: Option<AzureDevOpsBuildDefinitionName>,
     pub path: Option<AzureDevOpsBuildFolderPath>,
     pub uri: Option<AzureDevOpsBuildDefinitionUri>,
-    pub created_date: Option<DateTime<Utc>>,
+    pub created_date: Option<Timestamp>,
     pub revision: Option<i32>,
     pub queue_status: Option<AzureDevOpsBuildDefinitionQueueStatus>,
     pub r#type: Option<AzureDevOpsBuildDefinitionType>,

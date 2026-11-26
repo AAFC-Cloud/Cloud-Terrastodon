@@ -167,7 +167,7 @@ fn plan(
             deep: true,
             ..Default::default()
         },
-        chrono::Utc::now(),
+        jiff::Timestamp::now(),
         items,
         &definitions,
         &BTreeMap::from([("Synthetic type".parse()?, fields)]),
@@ -246,7 +246,7 @@ async fn cached_work_item_batch_can_run_inside_a_reusable_initializer() -> Resul
                 ids: ids(1),
                 expand: AzureDevOpsWorkItemExpand::None,
                 fields: vec!["System.Title".to_owned()],
-                as_of: Some(chrono::Utc::now()),
+                as_of: Some(jiff::Timestamp::now()),
             };
             let error = executor
                 .cached_work(

@@ -4,9 +4,8 @@ use crate::AzureResourceGroupName;
 use crate::ScopeImpl;
 use crate::SubscriptionId;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// A projection of Azure Monitor 2015-04-01 [`EventData`](https://learn.microsoft.com/en-us/rest/api/monitor/activity-logs/list?view=rest-monitor-2015-04-01#eventdata).
 /// The request projects event identity, time, operation, status, severity, category, and scope.
@@ -16,7 +15,7 @@ use facet::Facet;
 pub struct AzureActivityLogEvent {
     pub category: Option<AzureActivityLogLocalizableString>,
     pub event_data_id: String,
-    pub event_timestamp: DateTime<Utc>,
+    pub event_timestamp: Timestamp,
     pub operation_name: AzureActivityLogLocalizableString,
     pub status: Option<AzureActivityLogLocalizableString>,
     pub resource_id: Option<ScopeImpl>,

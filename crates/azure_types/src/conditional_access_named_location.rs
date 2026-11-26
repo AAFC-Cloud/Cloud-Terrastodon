@@ -1,10 +1,9 @@
 use crate::ConditionalAccessNamedLocationId;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use compact_str::CompactString;
 use facet::Facet;
 use ipnetwork::Ipv4Network;
+use jiff::Timestamp;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
@@ -49,11 +48,11 @@ pub struct ConditionalAccessIpNamedLocation {
     pub id: ConditionalAccessNamedLocationId,
     pub display_name: CompactString,
     #[facet(default)]
-    pub modified_date_time: Option<DateTime<Utc>>,
+    pub modified_date_time: Option<Timestamp>,
     #[facet(default)]
-    pub created_date_time: Option<DateTime<Utc>>,
+    pub created_date_time: Option<Timestamp>,
     #[facet(default)]
-    pub deleted_date_time: Option<DateTime<Utc>>,
+    pub deleted_date_time: Option<Timestamp>,
     pub is_trusted: bool,
     #[facet(default, proxy = crate::VecDefaultNullProxy<CidrHolder>)]
     pub ip_ranges: Vec<CidrHolder>,
@@ -82,11 +81,11 @@ pub struct ConditionalAccessCountryNamedLocation {
     pub id: ConditionalAccessNamedLocationId,
     pub display_name: CompactString,
     #[facet(default)]
-    pub modified_date_time: Option<DateTime<Utc>>,
+    pub modified_date_time: Option<Timestamp>,
     #[facet(default)]
-    pub created_date_time: Option<DateTime<Utc>>,
+    pub created_date_time: Option<Timestamp>,
     #[facet(default)]
-    pub deleted_date_time: Option<DateTime<Utc>>,
+    pub deleted_date_time: Option<Timestamp>,
     #[facet(default, opaque, proxy = crate::VecDefaultNullProxy<CompactString>)]
     pub countries_and_regions: Vec<CompactString>,
     pub include_unknown_countries_and_regions: bool,

@@ -1,6 +1,4 @@
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
@@ -13,6 +11,7 @@ use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::ensure;
 use facet::Facet;
+use jiff::Timestamp;
 use reqwest::Method;
 use reqwest::Url;
 use std::borrow::Cow;
@@ -31,7 +30,7 @@ pub struct AzureDevOpsWorkItemGetRequest<'a> {
     /// Azure DevOps expects an ISO 8601 date-time string, for example
     /// `2017-12-21T19:42:54.230Z`. See the official [`Get Work Item`](https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/work-items/get-work-item?view=azure-devops-rest-7.1)
     /// documentation for the `asOf` query parameter.
-    pub as_of: Option<DateTime<Utc>>,
+    pub as_of: Option<Timestamp>,
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemGetRequest<'static> {
@@ -43,7 +42,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemGetRequest<'static> {
             id: AzureDevOpsWorkItemId::arbitrary(u)?,
             expand: AzureDevOpsWorkItemExpand::arbitrary(u)?,
             fields: Vec::<String>::arbitrary(u)?,
-            as_of: Option::<DateTime<Utc>>::arbitrary(u)?,
+            as_of: Option::<Timestamp>::arbitrary(u)?,
         })
     }
 }
@@ -88,9 +87,9 @@ impl<'a> ExecutableRequest for AzureDevOpsWorkItemGetRequest<'a> {
                 url.query_pairs_mut()
                     .append_pair("fields", &self.fields.join(","));
             }
-            if let Some(as_of) = &self.as_of {
+            if let Some(as_of) = self.as_of {
                 url.query_pairs_mut()
-                    .append_pair("asOf", &as_of.to_rfc3339());
+                    .append_pair("asOf", &as_of.to_string());
             }
             let id = self.id;
             let request = RestRequest::from_method_and_url(Method::GET, url)?;

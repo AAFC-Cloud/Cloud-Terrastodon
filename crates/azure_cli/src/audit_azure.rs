@@ -9,6 +9,7 @@ use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_execution::CacheInvalidatableRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
+use jiff::Timestamp;
 
 /// Run the existing independent Azure policies through the shared inventory cache.
 pub async fn audit_azure(
@@ -19,7 +20,7 @@ pub async fn audit_azure(
     let unknown = AzureUnknownPrincipalAuditRequest { authentication };
     let passwords = AzureServicePrincipalPasswordAuditRequest {
         authentication,
-        observed_at: chrono::Utc::now(),
+        observed_at: Timestamp::now(),
     };
     let tags = AzureResourceTagAuditRequest { authentication };
     let admins = AzureAdminCorrespondenceAuditRequest { authentication };

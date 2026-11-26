@@ -1,7 +1,6 @@
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// Creation timestamps reported separately for the account's two access keys.
 ///
@@ -10,8 +9,8 @@ use facet::Facet;
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureStorageAccountKeyCreationTime {
-    pub key1: Option<DateTime<Utc>>,
-    pub key2: Option<DateTime<Utc>>,
+    pub key1: Option<Timestamp>,
+    pub key2: Option<Timestamp>,
 }
 
 cloud_terrastodon_registry::register_thing!(AzureStorageAccountKeyCreationTime);

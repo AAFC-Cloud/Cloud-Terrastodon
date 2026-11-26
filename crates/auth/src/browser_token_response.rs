@@ -1,8 +1,6 @@
 use crate::AzureBearerToken;
 use crate::EntraTokenRequestError;
 use crate::browser_access_token::BrowserAccessToken;
-use chrono::Local;
-use chrono::TimeDelta;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_azure_types::AzureAccessToken;
 use cloud_terrastodon_azure_types::AzureTenantId;
@@ -12,6 +10,8 @@ use eyre::Result;
 use eyre::bail;
 use facet::Facet;
 use http::StatusCode;
+use jiff::SignedDuration;
+use jiff::Timestamp;
 use uuid::Uuid;
 
 /// Success or error returned by the Entra v2 token endpoint.
@@ -94,12 +94,9 @@ impl BrowserTokenResponse {
             .ok_or_else(|| eyre::eyre!("Entra browser token response omitted expires_in"))?;
         let expires_in = i64::try_from(expires_in)
             .wrap_err("Entra browser token expiry is outside the supported range")?;
-        let validity = TimeDelta::try_seconds(expires_in).ok_or_else(|| {
-            eyre::eyre!("Entra browser token expiry is outside the supported range")
-        })?;
-        let expires_on = Local::now().checked_add_signed(validity).ok_or_else(|| {
-            eyre::eyre!("Entra browser token expiry is outside the supported range")
-        })?;
+        let expires_on = Timestamp::now()
+            .checked_add(SignedDuration::from_secs(expires_in))
+            .wrap_err("Entra browser token expiry is outside the supported range")?;
         if self
             .refresh_token
             .as_ref()
@@ -168,7 +165,11 @@ mod tests {
 
     #[test]
     fn rejects_failed_exchange_even_with_access_token_and_unrepresentable_expiry() {
-        for (status, expiry) in [(StatusCode::BAD_REQUEST, 3600), (StatusCode::OK, u64::MAX)] {
+        for (status, expiry) in [
+            (StatusCode::BAD_REQUEST, 3600),
+            (StatusCode::OK, i64::MAX as u64),
+            (StatusCode::OK, u64::MAX),
+        ] {
             let error = BrowserTokenResponse {
                 access_token: Some("synthetic-secret".to_owned()),
                 token_type: Some("Bearer".to_owned()),

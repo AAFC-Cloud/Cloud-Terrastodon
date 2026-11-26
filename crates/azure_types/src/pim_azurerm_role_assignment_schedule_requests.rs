@@ -2,9 +2,8 @@ use crate::EntraPrincipalId;
 use crate::RoleDefinitionId;
 use crate::RoleEligibilityScheduleId;
 use crate::iso8601_duration::IsoDuration;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Facet)]
@@ -82,7 +81,7 @@ pub enum RoleAssignmentScheduleRequestPropertiesRequestType {
 #[derive(Debug, Clone, PartialEq, Facet)]
 pub struct RoleAssignmentScheduleRequestPropertiesScheduleInfo {
     #[facet(rename = "StartDateTime", default)]
-    pub start_date_time: Option<DateTime<Utc>>,
+    pub start_date_time: Option<Timestamp>,
     #[facet(rename = "Expiration")]
     pub expiration: RoleAssignmentScheduleRequestPropertiesScheduleInfoExpiration,
 }
@@ -93,7 +92,7 @@ pub struct RoleAssignmentScheduleRequestPropertiesScheduleInfo {
 pub enum RoleAssignmentScheduleRequestPropertiesScheduleInfoExpiration {
     AfterDateTime {
         #[facet(rename = "EndDateTime")]
-        end_date_time: DateTime<Utc>,
+        end_date_time: Timestamp,
     },
     AfterDuration {
         #[facet(rename = "Duration")]

@@ -65,16 +65,16 @@ indexmap = {version = "2.14.0", features = ["arbitrary"] } # indexmap does not c
 ordermap = {version = "0.5.0" } # ordermap cares about entries being in the same order for equality
 hcl-primitives = "0.1.5"
 uuid = { version = "1.8.0", features = ["v4", "arbitrary"] }
-chrono = { version = "0.4.38", features = ["arbitrary"] }
+jiff = { version = "1.0.3", features = ["arbitrary"] }
 rand = "0.10.1"
-teamy-cancellation = { version = "=0.8.3", features = ["async", "deferral", "facet", "arbitrary", "io"] }
+teamy-cancellation = { version = "=0.8.4", features = ["async", "deferral", "facet", "arbitrary", "io"] }
 test-log = { version = "0.2.16", features = ["trace"] }
-iso8601-duration = { version = "0.2.0", features = ["chrono"] }
+iso8601-duration = "0.2.0"
 humantime = "2.1.0"
 directories-next = "2.0.0"
 ratatui = "0.30.1"
 strip-ansi-escapes = "0.2.1"
-gix = { version = "0.84.0", default-features = false, features = ["sha1", "sha256"] }
+gix = { version = "0.91.0", default-features = false, features = ["sha1", "sha256"] }
 opener = "0.8.3"
 webbrowser = "1.2.1"
 emath = "0.36.2"
@@ -117,15 +117,15 @@ same-file = "1.0.6"
 eframe = { version = "0.36.2", default-features = false, features = ["accesskit", "default_fonts", "glow", "links", "persistence", "wayland", "x11"] }
 egui_extras = { version = "0.36.2", features = ["default", "image"] }
 egui-toast = "0.22.0"
-teamy-tracing = { version = "0.3.0", default-features = false, features = ["eyre"] }
+teamy-tracing = { version = "0.3.1", default-features = false, features = ["eyre"] }
 # TeamDman's independently published forks. Keep Rust dependency aliases for
 # generated Facet/Figue macro paths and pin the compatible registry releases.
-facet = { package = "teamy-facet", version = "=0.50.0-rc.10", features = ["uuid", "compact_str", "chrono", "net", "url", "indexmap", "bstr"] }
-facet-json = { package = "teamy-facet-json", version = "=0.50.0-rc.12", features = ["net"] }
-facet-reflect = { package = "teamy-facet-reflect", version = "=0.50.0-rc.8" }
-facet-pretty = { package = "teamy-facet-pretty", version = "=0.50.0-rc.8" }
-facet-value = { package = "teamy-facet-value", version = "=0.50.0-rc.11" }
-figue = { package = "teamy-figue", version = "=6.0.0-rc.8", features = ["arbitrary"] }
+facet = { package = "teamy-facet", version = "=0.50.0-rc.11", features = ["uuid", "compact_str", "jiff", "net", "url", "indexmap", "bstr"] }
+facet-json = { package = "teamy-facet-json", version = "=0.50.0-rc.13", features = ["net"] }
+facet-reflect = { package = "teamy-facet-reflect", version = "=0.50.0-rc.9" }
+facet-pretty = { package = "teamy-facet-pretty", version = "=0.50.0-rc.9" }
+facet-value = { package = "teamy-facet-value", version = "=0.50.0-rc.12" }
+figue = { package = "teamy-figue", version = "=6.0.0-rc.9", features = ["arbitrary"] }
 linkme = { version = "0.3.36" }
 
 [workspace.dependencies.cloud_terrastodon_pathing]

@@ -26,7 +26,10 @@ impl CacheCleanTuiArgs {
                     match entry.selection {
                         CacheInventorySelection::Absent => "no selected artifact".to_owned(),
                         CacheInventorySelection::Selected(freshness) => {
-                            format!("observed {}", freshness.observed_at.to_rfc2822())
+                            format!(
+                                "observed {}",
+                                freshness.observed_at.strftime("%a, %-d %b %Y %H:%M:%S %z")
+                            )
                         }
                         CacheInventorySelection::Invalid { message } => {
                             format!("invalid metadata: {message}")

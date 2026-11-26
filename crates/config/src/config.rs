@@ -1,9 +1,9 @@
-use chrono::Utc;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use eyre::WrapErr;
 use facet_value::Destructured;
 use facet_value::Value;
+use jiff::Timestamp;
 use std::path::PathBuf;
 use tokio::fs;
 use tracing::debug;
@@ -41,7 +41,7 @@ pub trait Config:
                         err
                     );
                     // If we fail, backup the original file and use the default.
-                    let now = Utc::now().format("%Y%m%dT%H%M%SZ");
+                    let now = Timestamp::now().strftime("%Y%m%dT%H%M%SZ");
                     let backup_path =
                         path.with_file_name(format!("{}-{}.json.bak", Self::FILE_SLUG, now));
                     fs::copy(&path, &backup_path).await?;

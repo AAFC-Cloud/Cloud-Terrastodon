@@ -1,16 +1,16 @@
 use crate::SourceRepositoryAuthorSummary;
 use crate::SourceRepositoryHistorySummary;
-use chrono::DateTime;
 use eyre::Result;
 use eyre::WrapErr;
+use gix::HeadOwned;
 use gix::Reference;
 use gix::Repository;
 use gix::actor::SignatureRef;
 use gix::hash::ObjectId;
-use gix::head::Kind as HeadKind;
 use gix::objs::Kind as ObjectKind;
 use gix::prelude::ReferenceExt;
 use gix::refs::TargetRef;
+use jiff::Timestamp;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::str;
@@ -28,7 +28,7 @@ pub(crate) fn read_repository_history(
 ) -> Result<SourceRepositoryHistorySummary> {
     // The pinned gix API documents shallow commits as roots whose parents are
     // intentionally unavailable, rather than corrupt/missing history objects.
-    // https://docs.rs/gix/0.84.0/gix/struct.Repository.html#method.shallow_commits
+    // https://docs.rs/gix/0.91.0/gix/struct.Repository.html#method.shallow_commits
     let shallow = repository
         .shallow_commits()
         .wrap_err("Reading Git shallow-history boundaries")?;
@@ -38,10 +38,10 @@ pub(crate) fn read_repository_history(
         .collect();
     let mut pending = Vec::new();
     let head = repository.head().wrap_err("Reading Git HEAD")?;
-    let head_target = match head.kind {
-        HeadKind::Unborn(_) => None,
-        HeadKind::Detached { target, .. } => Some(target),
-        HeadKind::Symbolic(reference) => Some(reference_target(
+    let head_target = match head.detach_repo() {
+        HeadOwned::Unborn(_) => None,
+        HeadOwned::Detached { target, .. } => Some(target),
+        HeadOwned::Symbolic(reference) => Some(reference_target(
             repository,
             reference.attach(repository),
             cancellation,
@@ -54,7 +54,7 @@ pub(crate) fn read_repository_history(
     }
     // Finish enumeration before resolving symbolic references. Keeping a packed
     // reference iterator alive while reacquiring its buffer can deadlock.
-    // https://docs.rs/gix/0.84.0/gix/reference/iter/struct.Iter.html#method.peeled
+    // https://docs.rs/gix/0.91.0/gix/reference/iter/struct.Iter.html#method.peeled
     let references = repository
         .references()
         .wrap_err("Opening Git reference inventory")?
@@ -102,9 +102,9 @@ pub(crate) fn read_repository_history(
             .time()
             .wrap_err_with(|| format!("Reading authored timestamp of Git commit {id}"))?;
         // Git stores epoch seconds independently of the displayed timezone
-        // offset. DateTime::from_timestamp therefore yields the UTC instant.
-        let authored_at = DateTime::from_timestamp(timestamp.seconds, 0).ok_or_else(|| {
-            eyre::eyre!(
+        // offset.
+        let authored_at = Timestamp::from_second(timestamp.seconds).wrap_err_with(|| {
+            format!(
                 "Git commit {id} authored timestamp {} is outside the supported datetime range",
                 timestamp.seconds
             )

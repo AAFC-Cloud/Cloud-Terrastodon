@@ -6,10 +6,9 @@ use crate::AzureDevOpsLicenseType;
 use crate::AzureDevOpsUserId;
 use crate::LastAccessedDate;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// User entitlement returned by the [Azure DevOps 7.1 license search](https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/search-user-entitlements?view=azure-devops-rest-7.1#userentitlement).
 #[derive(Debug, Clone, Facet, Arbitrary)]
@@ -19,7 +18,7 @@ pub struct AzureDevOpsUserLicenseEntitlement {
     pub id: AzureDevOpsUserId,
     pub access_level: AzureDevOpsLicenseRule,
     /// The documented single-user response can omit the creation date.
-    pub date_created: Option<DateTime<Utc>>,
+    pub date_created: Option<Timestamp>,
     pub last_accessed_date: LastAccessedDate,
     pub user: AzureDevOpsLicenseEntitlementUserReference,
     // License-only searches do not request these sections. Preserve them as

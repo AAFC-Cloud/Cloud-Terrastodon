@@ -1,8 +1,6 @@
 use crate::AzureAuditFinding;
 use crate::AzureAuditPasswordCredentialStatus;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::EntraPrincipalCollection;
 use cloud_terrastodon_azure::EntraPrincipalListRequest;
@@ -13,12 +11,13 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// Check service-principal password expiry against the existing 30-day policy.
 #[derive(Debug, Arbitrary, Facet)]
 pub struct AzureServicePrincipalPasswordAuditRequest {
     pub authentication: AzureBearerAuthenticationSelection,
-    pub observed_at: DateTime<Utc>,
+    pub observed_at: Timestamp,
 }
 
 impl CacheInvalidationKeys for AzureServicePrincipalPasswordAuditRequest {
@@ -33,7 +32,7 @@ impl CacheInvalidationKeys for AzureServicePrincipalPasswordAuditRequest {
 impl AzureServicePrincipalPasswordAuditRequest {
     pub fn evaluate(
         principals: &EntraPrincipalCollection,
-        now: DateTime<Utc>,
+        now: Timestamp,
         cancellation: &CancellationScope,
     ) -> eyre::Result<Vec<AzureAuditFinding>> {
         let mut findings = Vec::new();
@@ -45,9 +44,9 @@ impl AzureServicePrincipalPasswordAuditRequest {
             let replacement = principal
                 .password_credentials
                 .iter()
-                .any(|password| (password.end_date_time - now).num_days() > 30);
+                .any(|password| password.end_date_time.duration_since(now).as_hours() / 24 > 30);
             for password in &principal.password_credentials {
-                let days_until_expiry = (password.end_date_time - now).num_days();
+                let days_until_expiry = password.end_date_time.duration_since(now).as_hours() / 24;
                 let status = if days_until_expiry < 0 && !replacement {
                     AzureAuditPasswordCredentialStatus::ExpiredWithoutReplacement
                 } else if days_until_expiry < 30 && !replacement {

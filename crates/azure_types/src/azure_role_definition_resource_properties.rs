@@ -3,9 +3,8 @@ use crate::RoleDefinitionKind;
 use crate::RolePermissions;
 use crate::ScopeImpl;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// Properties of an ARM [role definition](https://learn.microsoft.com/en-us/rest/api/authorization/role-definitions/list?view=rest-authorization-2022-04-01#roledefinition).
 #[derive(Debug, Arbitrary, Facet)]
@@ -20,9 +19,9 @@ pub struct AzureRoleDefinitionResourceProperties {
     pub permissions: Vec<RolePermissions>,
     /// Creation and update metadata are omitted by the documented list example.
     pub created_by: Option<EntraPrincipalId>,
-    pub created_on: Option<DateTime<Utc>>,
+    pub created_on: Option<Timestamp>,
     pub updated_by: Option<EntraPrincipalId>,
-    pub updated_on: Option<DateTime<Utc>>,
+    pub updated_on: Option<Timestamp>,
 }
 
 cloud_terrastodon_registry::register_thing!(AzureRoleDefinitionResourceProperties);

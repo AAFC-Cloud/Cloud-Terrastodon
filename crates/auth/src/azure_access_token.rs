@@ -3,8 +3,6 @@ use crate::AzureBearerToken;
 use crate::CancellationScope;
 use crate::browser_access_token::fetch_browser_access_token;
 use crate::workload_identity::exchange_workload_identity_assertion;
-use chrono::Local;
-use chrono::TimeDelta;
 use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
@@ -12,6 +10,9 @@ use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_azure_types::AzureAccessToken;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use eyre::WrapErr;
+use jiff::SignedDuration;
+use jiff::Timestamp;
 use reqwest::Client;
 use std::io::IsTerminal;
 
@@ -77,7 +78,7 @@ pub async fn fetch_azure_bearer_access_token(
                         .lock()
                         .await;
                     if let Some(token) = cache.get(&(tenant, resource))
-                        && is_token_fresh(token, Local::now())
+                        && is_token_fresh(token, Timestamp::now())
                     {
                         return Ok(token.clone());
                     }
@@ -90,15 +91,10 @@ pub async fn fetch_azure_bearer_access_token(
                     )
                     .await?;
                     let lifetime = i64::try_from(expires_in)
-                        .ok()
-                        .and_then(TimeDelta::try_seconds)
-                        .ok_or_else(|| {
-                            eyre::eyre!("workload identity token lifetime is out of range")
-                        })?;
-                    let expires_on =
-                        Local::now().checked_add_signed(lifetime).ok_or_else(|| {
-                            eyre::eyre!("workload identity token expiry is out of range")
-                        })?;
+                        .wrap_err("workload identity token lifetime is out of range")?;
+                    let expires_on = Timestamp::now()
+                        .checked_add(SignedDuration::from_secs(lifetime))
+                        .wrap_err("workload identity token expiry is out of range")?;
                     let token = AzureAccessToken {
                         access_token: AzureBearerToken::new(token),
                         expires_on,
@@ -138,11 +134,8 @@ pub async fn fetch_azure_bearer_access_token(
         .await
 }
 
-fn is_token_fresh(
-    token: &AzureAccessToken<AzureBearerToken>,
-    now: chrono::DateTime<Local>,
-) -> bool {
-    token.expires_on > now + TimeDelta::seconds(TOKEN_REFRESH_BUFFER_SECONDS)
+pub(crate) fn is_token_fresh(token: &AzureAccessToken<AzureBearerToken>, now: Timestamp) -> bool {
+    token.expires_on.duration_since(now) > SignedDuration::from_secs(TOKEN_REFRESH_BUFFER_SECONDS)
 }
 
 pub fn is_headless_auth_context() -> bool {
@@ -177,14 +170,14 @@ mod test {
     use crate::AuthContext;
     use crate::AzureBearerToken;
     use crate::azure_access_token::TOKEN_REFRESH_BUFFER_SECONDS;
-    use chrono::Local;
-    use chrono::TimeDelta;
     use cloud_terrastodon_auth_types::AuthSource;
     use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
     use cloud_terrastodon_azure_types::AzureAccessToken;
     use cloud_terrastodon_azure_types::AzureTenantId;
     use cloud_terrastodon_azure_types::TokenType;
     use cloud_terrastodon_command::CancellationToken;
+    use jiff::SignedDuration;
+    use jiff::Timestamp;
 
     #[test]
     fn explicit_context_is_used_for_dispatch() -> eyre::Result<()> {
@@ -268,11 +261,11 @@ mod test {
 
     #[test]
     fn token_refresh_buffer_is_deterministic() -> eyre::Result<()> {
-        let now = Local::now();
+        let now = Timestamp::UNIX_EPOCH;
         let tenant = "22222222-2222-2222-2222-222222222222".parse::<AzureTenantId>()?;
         let token = AzureAccessToken {
             access_token: AzureBearerToken::new("access-token"),
-            expires_on: now + TimeDelta::seconds(TOKEN_REFRESH_BUFFER_SECONDS + 1),
+            expires_on: now + SignedDuration::from_secs(TOKEN_REFRESH_BUFFER_SECONDS + 1),
             subscription: None,
             tenant,
             token_type: TokenType::Bearer,
@@ -280,7 +273,7 @@ mod test {
         assert!(super::is_token_fresh(&token, now));
         assert!(!super::is_token_fresh(
             &AzureAccessToken {
-                expires_on: now + TimeDelta::seconds(TOKEN_REFRESH_BUFFER_SECONDS),
+                expires_on: now + SignedDuration::from_secs(TOKEN_REFRESH_BUFFER_SECONDS),
                 ..token
             },
             now

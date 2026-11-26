@@ -6,9 +6,8 @@ use crate::AzureStorageAccountBlobContainerLeaseStatus;
 use crate::AzureStorageAccountBlobContainerLegalHold;
 use crate::AzureStorageAccountBlobContainerPublicAccess;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 use std::collections::HashMap;
 
 /// Container properties returned by the ARM storage inventory.
@@ -25,7 +24,7 @@ pub struct AzureStorageAccountBlobContainerProperties {
     /// The deletion marker is omitted for live containers.
     pub deleted: Option<bool>,
     /// Reported for soft-deleted containers, not live containers.
-    pub deleted_time: Option<DateTime<Utc>>,
+    pub deleted_time: Option<Timestamp>,
     /// Reported while a soft-deleted container is retained.
     pub remaining_retention_days: Option<i32>,
     /// Configured encryption scope; omitted by the basic ListContainers response.
@@ -33,7 +32,7 @@ pub struct AzureStorageAccountBlobContainerProperties {
     /// Encryption-scope setting omitted by the basic ListContainers response.
     pub deny_encryption_scope_override: Option<bool>,
     pub public_access: AzureStorageAccountBlobContainerPublicAccess,
-    pub last_modified_time: DateTime<Utc>,
+    pub last_modified_time: Timestamp,
     pub lease_status: AzureStorageAccountBlobContainerLeaseStatus,
     pub lease_state: AzureStorageAccountBlobContainerLeaseState,
     /// Only reported when the container is leased, as specified by the API.

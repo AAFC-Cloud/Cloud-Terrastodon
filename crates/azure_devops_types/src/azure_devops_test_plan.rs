@@ -1,8 +1,7 @@
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use facet::Facet;
+use jiff::Timestamp;
 
 #[derive(Debug, Eq, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
@@ -11,7 +10,7 @@ pub struct AzureDevOpsTestPlan {
     pub build: Option<AzureDevOpsTestPlanShallowReference>,
     pub build_definition: Option<AzureDevOpsTestPlanShallowReference>,
     pub description: Option<String>,
-    pub end_date: Option<DateTime<Utc>>,
+    pub end_date: Option<Timestamp>,
     pub id: u32,
     pub iteration: Option<String>,
     pub name: String,
@@ -22,11 +21,11 @@ pub struct AzureDevOpsTestPlan {
         Option<AzureDevOpsTestPlanReleaseEnvironmentDefinitionReference>,
     pub revision: Option<u32>,
     pub root_suite: Option<AzureDevOpsTestPlanShallowReference>,
-    pub start_date: Option<DateTime<Utc>>,
+    pub start_date: Option<Timestamp>,
     pub state: Option<String>,
     pub test_outcome_settings: Option<AzureDevOpsTestPlanTestOutcomeSettings>,
     pub updated_by: Option<AzureDevOpsTestPlanIdentityRef>,
-    pub updated_date: Option<DateTime<Utc>>,
+    pub updated_date: Option<Timestamp>,
     pub url: Option<String>,
     pub client_url: Option<String>,
 }

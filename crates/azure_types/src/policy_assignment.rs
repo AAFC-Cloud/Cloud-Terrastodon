@@ -9,8 +9,6 @@ use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_hcl_types::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
@@ -18,6 +16,7 @@ use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use compact_str::CompactString;
 use facet::Facet;
+use jiff::Timestamp;
 
 #[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 pub struct PolicyAssignment {
@@ -54,12 +53,12 @@ pub enum PolicyAssignmentEnforcementMode {
 #[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct PolicyAssignmentMetadata {
-    pub created_on: DateTime<Utc>,
+    pub created_on: Timestamp,
     pub created_by: EntraPrincipalId,
     pub assigned_by: Option<CompactString>,
     pub parameter_scopes: Option<ArbitraryJson>,
     pub updated_by: Option<EntraPrincipalId>,
-    pub updated_on: Option<DateTime<Utc>>,
+    pub updated_on: Option<Timestamp>,
 }
 
 #[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]

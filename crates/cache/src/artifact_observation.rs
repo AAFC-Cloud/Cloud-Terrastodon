@@ -1,5 +1,4 @@
-use chrono::DateTime;
-use chrono::Utc;
+use jiff::Timestamp;
 use std::time::Instant;
 
 /// Correlated wall and monotonic time when an execution outcome was observed.
@@ -7,7 +6,7 @@ use std::time::Instant;
 #[derive(Clone, Copy, Debug)]
 pub struct ArtifactObservation {
     // The clocks belong to one observation and cannot be replaced independently.
-    pub(crate) wall: DateTime<Utc>,
+    pub(crate) wall: Timestamp,
     pub(crate) monotonic: Instant,
 }
 
@@ -15,7 +14,7 @@ impl ArtifactObservation {
     pub fn now() -> Self {
         Self {
             monotonic: Instant::now(),
-            wall: Utc::now(),
+            wall: Timestamp::now(),
         }
     }
 }

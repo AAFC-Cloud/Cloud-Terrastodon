@@ -2,7 +2,7 @@ use crate::CacheEntryIdentity;
 use crate::artifact_age::ArtifactAge;
 use crate::cache_generation_stamp::CacheGenerationStamp;
 use crate::cache_state::CacheState;
-use chrono::Utc;
+use jiff::Timestamp;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -21,7 +21,7 @@ impl WorkDependency {
             && self.age.reusable(
                 &self.age.freshness,
                 self.validity,
-                Utc::now(),
+                Timestamp::now(),
                 Instant::now(),
             )
     }

@@ -38,7 +38,7 @@ humantime.workspace = true
 base64.workspace = true
 blake3.workspace = true
 reqwest.workspace = true
-chrono = { workspace = true }
+jiff = { workspace = true }
 arbitrary.workspace = true 
 
 [dev-dependencies]

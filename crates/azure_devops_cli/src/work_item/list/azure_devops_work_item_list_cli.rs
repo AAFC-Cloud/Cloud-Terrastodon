@@ -1,5 +1,3 @@
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
@@ -9,6 +7,7 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use facet::Facet;
+use jiff::Timestamp;
 use std::borrow::Cow;
 
 #[derive(Debug, Clone, Facet)]
@@ -31,7 +30,7 @@ pub struct AzureDevOpsWorkItemListArgs {
     pub fields: Option<String>,
     /// Read a historical snapshot at this UTC timestamp.
     #[facet(figue::named)]
-    pub as_of: Option<DateTime<Utc>>,
+    pub as_of: Option<Timestamp>,
 }
 
 impl AzureDevOpsWorkItemListArgs {

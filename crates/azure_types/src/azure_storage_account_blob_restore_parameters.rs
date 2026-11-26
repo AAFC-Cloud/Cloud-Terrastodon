@@ -1,8 +1,7 @@
 use crate::AzureStorageAccountBlobRestoreRange;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// The point in time and ranges selected for a blob restore.
 ///
@@ -11,7 +10,7 @@ use facet::Facet;
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureStorageAccountBlobRestoreParameters {
-    pub time_to_restore: DateTime<Utc>,
+    pub time_to_restore: Timestamp,
     pub blob_ranges: Vec<AzureStorageAccountBlobRestoreRange>,
 }
 

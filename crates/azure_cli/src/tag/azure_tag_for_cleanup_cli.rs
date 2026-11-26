@@ -1,4 +1,3 @@
-use chrono::Local;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_azure::AzureResourceListRequest;
@@ -13,6 +12,9 @@ use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;
 use facet::Facet;
+use jiff::ZonedDateTime;
+use jiff::fmt::temporal::DateTimePrinter;
+use jiff::tz::Offset;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
@@ -28,7 +30,13 @@ pub struct AzureTagForCleanupArgs {
 impl AzureTagForCleanupArgs {
     pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         let authentication = self.authentication.resolve(executor).await?;
-        let cleanup_tagged_date = Local::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+        let now = ZonedDateTime::now();
+        let printer = DateTimePrinter::new().precision(Some(0));
+        let cleanup_tagged_date = if now.offset() == Offset::UTC {
+            printer.timestamp_to_string(&now.timestamp())
+        } else {
+            printer.timestamp_with_offset_to_string(&now.timestamp(), now.offset())
+        };
         let cleanup_tagged_by = EntraCurrentUserRequest { authentication }
             .execute(executor)
             .await?

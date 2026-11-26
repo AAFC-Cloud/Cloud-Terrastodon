@@ -15,7 +15,7 @@ cloud_terrastodon_auth_types = { workspace = true }
 cloud_terrastodon_pathing = { workspace = true }
 cloud_terrastodon_registry = { workspace = true }
 eyre = { workspace = true }
-chrono = { workspace = true }
+jiff.workspace = true
 tracing = { workspace = true }
 tokio = { workspace = true }
 ordermap = { workspace = true }

@@ -11,11 +11,11 @@ use crate::planning::GroupPlanBlocker;
 use crate::planning::GroupPlanWarning;
 use crate::planning::PrincipalResolutionError;
 use crate::planning::RelationshipPlan;
-use chrono::Utc;
 use cloud_terrastodon::azure_types::AzureTenantId;
 use cloud_terrastodon::azure_types::EntraDirectoryObjectType;
 use eyre::Result;
 use eyre::ensure;
+use jiff::Timestamp;
 use std::collections::HashSet;
 
 impl DesireDocumentAchievementPlan {
@@ -105,7 +105,7 @@ impl DesireDocumentAchievementPlan {
         document_tenant_ids.dedup();
         Ok(Self {
             schema_version: 2,
-            created_at: Utc::now(),
+            created_at: Timestamp::now(),
             source_digest: document.source_digest().to_owned(),
             selected_tenant_id: None,
             document_tenant_ids,

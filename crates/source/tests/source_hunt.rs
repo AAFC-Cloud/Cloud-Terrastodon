@@ -1,13 +1,12 @@
 #![cfg(test)]
 
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_source::SourceFileExtension;
 use cloud_terrastodon_source::SourceHuntProgress;
 use cloud_terrastodon_source::SourceHuntReport;
 use cloud_terrastodon_source::SourceHuntRequest;
 use eyre::Result;
 use eyre::WrapErr;
+use jiff::Timestamp;
 use std::fs;
 use std::num::NonZeroUsize;
 use std::path::Path;
@@ -282,11 +281,11 @@ async fn summarizes_exact_author_identities_and_authored_time_extrema() -> Resul
     assert_eq!(alice.commit_count, 3);
     assert_eq!(
         alice.first_commit_at,
-        DateTime::parse_from_rfc3339("2024-01-15T17:30:00Z")?.with_timezone(&Utc)
+        "2024-01-15T17:30:00Z".parse::<Timestamp>()?
     );
     assert_eq!(
         alice.last_commit_at,
-        DateTime::parse_from_rfc3339("2024-03-20T08:00:00Z")?.with_timezone(&Utc)
+        "2024-03-20T08:00:00Z".parse::<Timestamp>()?
     );
     let other_alice = history
         .authors

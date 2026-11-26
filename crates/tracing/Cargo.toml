@@ -13,7 +13,7 @@ categories.workspace = true
 
 [dependencies]
 teamy-tracing.workspace = true
-chrono.workspace = true
+jiff.workspace = true
 eyre.workspace = true
 tracing-error.workspace = true
 tracing-subscriber.workspace = true

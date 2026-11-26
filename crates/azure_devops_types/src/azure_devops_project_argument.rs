@@ -131,10 +131,10 @@ mod tests {
     use crate::AzureDevOpsProjectName;
     use crate::AzureDevOpsProjectState;
     use crate::AzureDevOpsProjectVisibility;
-    use chrono::DateTime;
     use cloud_terrastodon_registry::RuntimeValue;
     use cloud_terrastodon_registry::functions_from_to;
     use facet::Facet;
+    use jiff::Timestamp;
     use std::any::Any;
 
     fn registered_project_argument<T>(input: T) -> AzureDevOpsProjectArgument<'static>
@@ -162,7 +162,7 @@ mod tests {
             default_team_image_url: None,
             description: None,
             id,
-            last_update_time: DateTime::UNIX_EPOCH,
+            last_update_time: Timestamp::UNIX_EPOCH,
             name: AzureDevOpsProjectName::try_new("Synthetic project").unwrap(),
             revision: 1,
             state: AzureDevOpsProjectState::WellFormed,

@@ -1,8 +1,7 @@
 use crate::entra_application_credential_status::EntraApplicationCredentialStatus;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure::ArbitraryJson;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// The readable fields shared by Graph [key credentials](https://learn.microsoft.com/en-us/graph/api/resources/keycredential?view=graph-rest-1.0)
 /// and [password credentials](https://learn.microsoft.com/en-us/graph/api/resources/passwordcredential?view=graph-rest-1.0).
@@ -10,8 +9,8 @@ use facet::Facet;
 #[facet(rename_all = "camelCase")]
 pub(crate) struct EntraApplicationCredentialMetadata {
     pub display_name: Option<String>,
-    pub start_date_time: Option<DateTime<Utc>>,
-    pub end_date_time: Option<DateTime<Utc>>,
+    pub start_date_time: Option<Timestamp>,
+    pub end_date_time: Option<Timestamp>,
 }
 
 impl EntraApplicationCredentialMetadata {
@@ -21,7 +20,7 @@ impl EntraApplicationCredentialMetadata {
         facet_json::from_str(credential.as_ref()).ok()
     }
 
-    pub fn status(&self, now: DateTime<Utc>) -> EntraApplicationCredentialStatus {
+    pub fn status(&self, now: Timestamp) -> EntraApplicationCredentialStatus {
         use EntraApplicationCredentialStatus as Status;
         match (self.start_date_time, self.end_date_time) {
             (Some(start), Some(end)) if start >= end => Status::Unknown,

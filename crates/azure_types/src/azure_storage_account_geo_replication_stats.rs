@@ -2,9 +2,8 @@ use crate::AzureStorageAccountGeoReplicationStatus;
 use crate::AzureStorageAccountPostFailoverRedundancy;
 use crate::AzureStorageAccountPostPlannedFailoverRedundancy;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// Reported geo-replication state and failover capabilities.
 ///
@@ -16,7 +15,7 @@ use facet::Facet;
 pub struct AzureStorageAccountGeoReplicationStats {
     pub status: Option<AzureStorageAccountGeoReplicationStatus>,
     /// The service may return its default timestamp while replication is unavailable or bootstrapping.
-    pub last_sync_time: Option<DateTime<Utc>>,
+    pub last_sync_time: Option<Timestamp>,
     pub can_failover: Option<bool>,
     pub can_planned_failover: Option<bool>,
     pub post_failover_redundancy: Option<AzureStorageAccountPostFailoverRedundancy>,

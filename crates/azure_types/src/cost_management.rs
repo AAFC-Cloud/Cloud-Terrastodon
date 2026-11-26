@@ -1,11 +1,9 @@
 use crate::ArbitraryJson;
-use chrono::DateTime;
-use chrono::Datelike;
-use chrono::Local;
-use chrono::Utc;
-use eyre::ContextCompat;
 use eyre::Result;
 use facet::Facet;
+use jiff::Timestamp;
+use jiff::ZonedDateTime;
+use jiff::tz::TimeZone;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -103,19 +101,12 @@ impl CostManagementQueryDefinition {
 
 impl CostManagementQueryTimePeriod {
     pub fn get_month_start_and_today_end() -> Result<Self> {
-        let today = Local::now().date_naive();
-        let start_of_month = today
-            .with_day(1)
-            .wrap_err("Current month has no first day")?
-            .and_hms_opt(0, 0, 0)
-            .wrap_err("Invalid start-of-month time")?;
-        let end_of_today = today
-            .and_hms_opt(23, 59, 59)
-            .wrap_err("Invalid end-of-day time")?;
-
+        let today = ZonedDateTime::now().date();
+        // Select dates in the system time zone and express their calendar
+        // boundaries as UTC timestamps in the Cost Management query.
         Ok(CostManagementQueryTimePeriod {
-            from: start_of_month.and_utc(),
-            to: end_of_today.and_utc(),
+            from: TimeZone::UTC.to_timestamp(today.first_of_month().at(0, 0, 0, 0))?,
+            to: TimeZone::UTC.to_timestamp(today.at(23, 59, 59, 0))?,
         })
     }
 }
@@ -251,8 +242,8 @@ pub struct CostManagementQueryResultProperties {
 }
 #[derive(Debug, Clone, Facet)]
 pub struct CostManagementQueryTimePeriod {
-    pub from: DateTime<Utc>,
-    pub to: DateTime<Utc>,
+    pub from: Timestamp,
+    pub to: Timestamp,
 }
 
 #[derive(Debug, Clone, Facet)]

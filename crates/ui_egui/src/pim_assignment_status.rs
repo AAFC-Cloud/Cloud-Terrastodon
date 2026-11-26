@@ -1,5 +1,4 @@
-use chrono::DateTime;
-use chrono::Utc;
+use jiff::Timestamp;
 
 /// The state of an assignment within its service-reported time window.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -12,12 +11,7 @@ pub(crate) enum PimAssignmentStatus {
 }
 
 impl PimAssignmentStatus {
-    pub fn at(
-        self,
-        now: DateTime<Utc>,
-        start: Option<DateTime<Utc>>,
-        end: Option<DateTime<Utc>>,
-    ) -> Self {
+    pub fn at(self, now: Timestamp, start: Option<Timestamp>, end: Option<Timestamp>) -> Self {
         if end.is_some_and(|end| end <= now) {
             Self::Expired
         } else if start.is_some_and(|start| start > now) {
@@ -40,15 +34,15 @@ impl PimAssignmentStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeDelta;
+    use jiff::SignedDuration;
 
     #[test]
     fn an_eligible_assignment_is_available_only_during_its_window() {
-        let start = DateTime::UNIX_EPOCH;
-        let end = start + TimeDelta::hours(1);
+        let start = Timestamp::UNIX_EPOCH;
+        let end = start + SignedDuration::from_hours(1);
         let status = PimAssignmentStatus::Eligible;
         assert_eq!(
-            status.at(start - TimeDelta::seconds(1), Some(start), Some(end)),
+            status.at(start - SignedDuration::from_secs(1), Some(start), Some(end)),
             PimAssignmentStatus::Scheduled
         );
         assert_eq!(

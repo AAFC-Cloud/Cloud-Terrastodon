@@ -343,7 +343,7 @@ mod tests {
     use crate::IconCatalogue;
     use crate::IconCatalogueEntry;
     use crate::IconFamily;
-    use chrono::DateTime;
+    use jiff::Timestamp;
     use sha2::Digest;
     use sha2::Sha256;
 
@@ -358,7 +358,7 @@ mod tests {
             logical_name: variant.into(),
             discovery_url: "https://example.com/manifest".parse().unwrap(),
             sha256: "0".repeat(64),
-            retrieved_at: DateTime::from_timestamp(0, 0).unwrap(),
+            retrieved_at: Timestamp::UNIX_EPOCH,
             terms_url: "https://example.com/terms".parse().unwrap(),
             resource_types: Vec::new(),
         }

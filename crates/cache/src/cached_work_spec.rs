@@ -279,8 +279,7 @@ mod tests {
     use crate::ExecutorKind;
     use crate::NonEmptyString;
     use crate::WorkReuse;
-    use chrono::TimeDelta;
-    use chrono::Utc;
+    use jiff::Timestamp;
     use std::future::poll_fn;
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering;
@@ -304,7 +303,7 @@ mod tests {
 
     fn observed_before(age: Duration) -> ArtifactObservation {
         ArtifactObservation {
-            wall: Utc::now() - TimeDelta::from_std(age).unwrap(),
+            wall: Timestamp::now() - age,
             monotonic: Instant::now() - age,
         }
     }
@@ -442,12 +441,12 @@ mod tests {
                     );
                     assert_eq!(
                         retained.certificate.own.age.freshness.expires_at,
-                        Some(observation.wall + TimeDelta::seconds(3600)),
+                        Some(observation.wall + Duration::from_secs(3600)),
                     );
                     assert!(!retained.certificate.own.age.reusable(
                         &retained.certificate.own.age.freshness,
                         longer_validity,
-                        observation.wall + TimeDelta::seconds(3601),
+                        observation.wall + Duration::from_secs(3601),
                         observation.monotonic + Duration::from_secs(3601),
                     ));
                 }

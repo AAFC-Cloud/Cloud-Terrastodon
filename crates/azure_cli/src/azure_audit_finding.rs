@@ -2,8 +2,6 @@ use crate::AzureAuditPasswordCredentialStatus;
 use crate::AzureStorageAccountAuditFinding;
 use crate::AzureStorageAccountAuditInconclusiveReason;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure::AzureStorageAccount;
 use cloud_terrastodon_azure::AzureStorageAccountBlobContainer;
 use cloud_terrastodon_azure::EntraPrincipalId;
@@ -13,6 +11,7 @@ use cloud_terrastodon_azure::RoleAssignmentId;
 use cloud_terrastodon_azure::ScopeImpl;
 use cloud_terrastodon_command::CancellationScope;
 use facet::Facet;
+use jiff::Timestamp;
 use std::io::Write;
 use std::sync::Arc;
 
@@ -37,7 +36,7 @@ pub enum AzureAuditFinding {
     ServicePrincipalPassword {
         principal_id: EntraServicePrincipalObjectId,
         principal_name: String,
-        password_cred_end_date: DateTime<Utc>,
+        password_cred_end_date: Timestamp,
         days_until_expiry: i64,
         status: AzureAuditPasswordCredentialStatus,
     },

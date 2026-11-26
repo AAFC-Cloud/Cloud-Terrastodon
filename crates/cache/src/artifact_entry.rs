@@ -14,12 +14,12 @@ use crate::artifact_selection::ArtifactSelection;
 use crate::cache_generation_stamp::CacheGenerationStamp;
 use crate::cache_state::CacheState;
 use crate::stored_artifact::StoredArtifact;
-use chrono::Utc;
 use eyre::Context;
 use eyre::OptionExt;
 use eyre::Result;
 use eyre::ensure;
 use eyre::eyre;
+use jiff::Timestamp;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -242,7 +242,7 @@ impl ArtifactEntry {
     }
 
     pub(crate) fn admit_age(&self, manifest: &ArtifactManifest) -> Result<bool> {
-        let wall = Utc::now();
+        let wall = Timestamp::now();
         let monotonic = Instant::now();
         if !manifest.freshness.is_reusable_at(wall, self.validity) {
             return Ok(false);
@@ -253,9 +253,10 @@ impl ArtifactEntry {
             .entry((self.identity.clone(), manifest.attempt))
             .or_insert_with(|| ArtifactAge {
                 freshness: manifest.freshness.clone(),
-                initial_age: (wall - manifest.freshness.observed_at)
-                    .to_std()
-                    .unwrap_or(Duration::MAX),
+                initial_age: Duration::try_from(
+                    wall.duration_since(manifest.freshness.observed_at),
+                )
+                .unwrap_or(Duration::MAX),
                 anchored_at: monotonic,
             });
         Ok(age.reusable(&manifest.freshness, self.validity, wall, monotonic))
@@ -382,7 +383,6 @@ mod tests {
     use crate::ExecutorKind;
     use crate::NonEmptyString;
     use crate::work_attempt_guard::WorkAttemptGuard;
-    use chrono::TimeDelta;
     use std::future::Future;
     use std::future::poll_fn;
     use std::pin::Pin;
@@ -517,12 +517,12 @@ mod tests {
                 assert_eq!(age.initial_age, original.initial_age);
                 assert_eq!(
                     age.freshness.expires_at,
-                    Some(original.freshness.observed_at + TimeDelta::seconds(10))
+                    Some(original.freshness.observed_at + Duration::from_secs(10))
                 );
                 assert!(!age.reusable(
                     &age.freshness,
                     Duration::MAX,
-                    age.freshness.observed_at + TimeDelta::seconds(5),
+                    age.freshness.observed_at + Duration::from_secs(5),
                     age.anchored_at + Duration::from_secs(11)
                 ));
                 // A narrower caller never shortens another caller's stored proof.

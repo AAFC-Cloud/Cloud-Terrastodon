@@ -7,9 +7,8 @@ use crate::PolicyRemediationProvisioningState;
 use crate::PolicyRemediationResourceDiscoveryMode;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// Configuration and progress of a submitted remediation task.
 ///
@@ -28,8 +27,8 @@ pub struct PolicyRemediationProperties {
     pub policy_definition_reference_id: Option<PolicyDefinitionReferenceId>,
     pub resource_discovery_mode: PolicyRemediationResourceDiscoveryMode,
     pub provisioning_state: PolicyRemediationProvisioningState,
-    pub created_on: DateTime<Utc>,
-    pub last_updated_on: DateTime<Utc>,
+    pub created_on: Timestamp,
+    pub last_updated_on: Timestamp,
     /// Absent from basic creation responses when no narrowing filters are supplied.
     pub filters: Option<PolicyRemediationFilters>,
     pub deployment_status: PolicyRemediationDeploymentSummary,

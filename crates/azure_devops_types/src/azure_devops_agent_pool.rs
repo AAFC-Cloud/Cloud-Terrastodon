@@ -1,10 +1,9 @@
 use crate::AzureDevOpsAgentPoolId;
 use crate::AzureDevOpsAgentPoolName;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use facet::Facet;
+use jiff::Timestamp;
 
 #[derive(Debug, Clone, Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
@@ -14,7 +13,7 @@ pub struct AzureDevOpsAgentPool {
     pub auto_size: bool,
     pub auto_update: bool,
     pub created_by: AzureDevOpsAgentPoolCreatedBy,
-    pub created_on: DateTime<Utc>,
+    pub created_on: Timestamp,
     pub id: AzureDevOpsAgentPoolId,
     pub is_hosted: bool,
     pub is_legacy: bool,

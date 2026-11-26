@@ -1,7 +1,6 @@
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// A build metric's name, value and time scope.
 ///
@@ -12,7 +11,7 @@ use facet::Facet;
 pub struct AzureDevOpsBuildMetric {
     pub name: String,
     pub int_value: i32,
-    pub date: Option<DateTime<Utc>>,
+    pub date: Option<Timestamp>,
     pub scope: Option<String>,
 }
 

@@ -2,14 +2,13 @@ use crate::AzureDevOpsProjectArgument;
 use crate::AzureDevOpsProjectId;
 use crate::AzureDevOpsProjectName;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_hcl_types::AzureDevOpsResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use facet::Facet;
+use jiff::Timestamp;
 
 #[derive(Debug, Eq, PartialEq, Clone, Arbitrary, Facet)]
 #[repr(C)]
@@ -34,7 +33,7 @@ pub struct AzureDevOpsProject {
     pub default_team_image_url: Option<String>,
     pub description: Option<String>,
     pub id: AzureDevOpsProjectId,
-    pub last_update_time: DateTime<Utc>,
+    pub last_update_time: Timestamp,
     pub name: AzureDevOpsProjectName,
     pub revision: u16,
     pub state: AzureDevOpsProjectState,

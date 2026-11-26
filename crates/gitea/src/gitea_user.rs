@@ -1,9 +1,8 @@
 use crate::GiteaUserId;
 use crate::GiteaUsername;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::FixedOffset;
 use facet::Facet;
+use jiff::Timestamp;
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
@@ -21,9 +20,9 @@ pub struct GiteaUser {
     #[facet(default)]
     pub language: Option<String>,
     #[facet(default)]
-    pub last_login: Option<DateTime<FixedOffset>>,
+    pub last_login: Option<Timestamp>,
     #[facet(default)]
-    pub created: Option<DateTime<FixedOffset>>,
+    pub created: Option<Timestamp>,
     #[facet(default)]
     pub visibility: Option<String>,
     #[facet(default)]

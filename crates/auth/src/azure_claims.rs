@@ -1,11 +1,11 @@
-use chrono::DateTime;
-use chrono::Local;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::AzureUnixTimestampSecondsProxy;
 use cloud_terrastodon_azure_types::EntraApplicationClientId;
 use cloud_terrastodon_azure_types::EntraGroupId;
 use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_azure_types::uuid::Uuid;
 use facet::Facet;
+use jiff::Timestamp;
 
 #[derive(Debug, Facet, Clone)]
 pub struct AzureClaims {
@@ -14,14 +14,14 @@ pub struct AzureClaims {
     #[facet(rename = "iss")]
     pub issuer: String,
     #[facet(rename = "iat")]
-    #[facet(proxy = cloud_terrastodon_azure_types::LocalDateTimeEpochSecondsProxy)]
-    pub issued_at: DateTime<Local>,
+    #[facet(proxy = AzureUnixTimestampSecondsProxy)]
+    pub issued_at: Timestamp,
     #[facet(rename = "nbf")]
-    #[facet(proxy = cloud_terrastodon_azure_types::LocalDateTimeEpochSecondsProxy)]
-    pub not_before: DateTime<Local>,
+    #[facet(proxy = AzureUnixTimestampSecondsProxy)]
+    pub not_before: Timestamp,
     #[facet(rename = "exp")]
-    #[facet(proxy = cloud_terrastodon_azure_types::LocalDateTimeEpochSecondsProxy)]
-    pub expires: DateTime<Local>,
+    #[facet(proxy = AzureUnixTimestampSecondsProxy)]
+    pub expires: Timestamp,
     #[facet(rename = "acr")]
     pub authentication_context_class: String,
     #[facet(rename = "acrs")]

@@ -277,7 +277,6 @@ cloud_terrastodon_registry_execution::register_executable_request!(
 mod tests {
     use super::*;
     use crate::test_executor::authentication_selection;
-    use chrono::DateTime;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectId;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectName;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectState;
@@ -287,6 +286,7 @@ mod tests {
     use cloud_terrastodon_registry::ProductionKind;
     use cloud_terrastodon_registry_execution::functions_from;
     use facet::Facet;
+    use jiff::Timestamp;
 
     fn project(id: &str, name: &str) -> AzureDevOpsProject {
         AzureDevOpsProject {
@@ -294,7 +294,7 @@ mod tests {
             default_team_image_url: None,
             description: None,
             id: id.parse::<AzureDevOpsProjectId>().unwrap(),
-            last_update_time: DateTime::UNIX_EPOCH,
+            last_update_time: Timestamp::UNIX_EPOCH,
             name: AzureDevOpsProjectName::try_new(name).unwrap(),
             revision: 1,
             state: AzureDevOpsProjectState::WellFormed,

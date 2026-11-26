@@ -3,9 +3,8 @@ use crate::AzureDenyAssignmentPrincipal;
 use crate::EntraPrincipalId;
 use crate::ScopeImpl;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// Properties of an ARM [deny assignment](https://learn.microsoft.com/en-us/rest/api/authorization/deny-assignments/list-for-scope?view=rest-authorization-2022-04-01#denyassignment).
 #[derive(Debug, Arbitrary, Facet)]
@@ -24,9 +23,9 @@ pub struct AzureDenyAssignmentResourceProperties {
     pub condition: Option<String>,
     pub condition_version: Option<String>,
     pub created_by: Option<EntraPrincipalId>,
-    pub created_on: Option<DateTime<Utc>>,
+    pub created_on: Option<Timestamp>,
     pub updated_by: Option<EntraPrincipalId>,
-    pub updated_on: Option<DateTime<Utc>>,
+    pub updated_on: Option<Timestamp>,
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDenyAssignmentResourceProperties);

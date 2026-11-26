@@ -1,10 +1,9 @@
 use crate::AccountSignInPrompt;
 use crate::AzureBearerToken;
+use crate::azure_access_token::is_token_fresh;
 use crate::azure_cli_account_identity::AzureCliAccountIdentity;
 use crate::azure_cli_sign_in_mode::AzureCliSignInMode;
 use crate::azure_cli_sign_in_process::AzureCliSignInProcess;
-use chrono::Local;
-use chrono::TimeDelta;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_azure_types::AzureAccessToken;
 use cloud_terrastodon_azure_types::AzureTenantId;
@@ -16,6 +15,7 @@ use eyre::WrapErr;
 use eyre::bail;
 use eyre::ensure;
 use facet::Facet;
+use jiff::Timestamp;
 use std::collections::HashMap;
 use std::fs::File;
 use std::fs::OpenOptions;
@@ -362,7 +362,7 @@ impl AzureCliSession {
         self.verify_identity(cancellation).await?;
         let mut tokens = self.tokens.lock().await;
         if let Some(token) = tokens.get(&resource)
-            && token.expires_on > Local::now() + TimeDelta::seconds(120)
+            && is_token_fresh(token, Timestamp::now())
         {
             return Ok(token.clone());
         }

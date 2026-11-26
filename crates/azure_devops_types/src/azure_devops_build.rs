@@ -6,10 +6,9 @@ use crate::AzureDevOpsBuildStatus;
 use crate::AzureDevOpsBuildUrl;
 use crate::AzureDevOpsProjectReference;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// A build returned by Azure DevOps. Typed response status/result vocabularies
 /// preserve unknown server values without losing their wire spelling.
@@ -28,9 +27,9 @@ pub struct AzureDevOpsBuild {
     pub project: AzureDevOpsProjectReference,
     pub source_branch: String,
     pub source_version: String,
-    pub queue_time: DateTime<Utc>,
-    pub start_time: DateTime<Utc>,
-    pub finish_time: DateTime<Utc>,
+    pub queue_time: Timestamp,
+    pub start_time: Timestamp,
+    pub finish_time: Timestamp,
     pub url: AzureDevOpsBuildUrl,
     #[facet(rename = "_links")]
     pub links: ArbitraryJson,

@@ -1,7 +1,6 @@
 use crate::IconFamily;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 use url::Url;
 
 /// One selected asset, its public identity, and the provenance of its exact bytes.
@@ -17,7 +16,7 @@ pub struct IconCatalogueEntry {
     pub logical_name: String,
     pub discovery_url: Url,
     pub sha256: String,
-    pub retrieved_at: DateTime<Utc>,
+    pub retrieved_at: Timestamp,
     pub terms_url: Url,
     pub resource_types: Vec<String>,
 }

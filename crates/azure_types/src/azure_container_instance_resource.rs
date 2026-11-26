@@ -3,9 +3,8 @@ use crate::AzureContainerInstanceResourceId;
 use crate::AzureContainerInstanceResourceName;
 use crate::AzureTenantId;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 use std::collections::HashMap;
 use std::net::IpAddr;
 
@@ -156,13 +155,13 @@ pub struct AzureContainerInstanceCurrentState {
     #[facet(default)]
     pub state: Option<String>,
     #[facet(default)]
-    pub start_time: Option<DateTime<Utc>>,
+    pub start_time: Option<Timestamp>,
     #[facet(default)]
     pub detail_status: Option<String>,
     #[facet(default)]
     pub exit_code: Option<isize>,
     #[facet(default)]
-    pub finish_time: Option<DateTime<Utc>>,
+    pub finish_time: Option<Timestamp>,
 }
 
 #[derive(Debug, Clone, Arbitrary, Facet)]
@@ -172,9 +171,9 @@ pub struct AzureContainerInstanceEvent {
     #[facet(default)]
     pub count: Option<u32>,
     #[facet(default)]
-    pub first_timestamp: Option<DateTime<Utc>>,
+    pub first_timestamp: Option<Timestamp>,
     #[facet(default)]
-    pub last_timestamp: Option<DateTime<Utc>>,
+    pub last_timestamp: Option<Timestamp>,
     #[facet(default)]
     pub name: Option<String>,
     #[facet(default)]

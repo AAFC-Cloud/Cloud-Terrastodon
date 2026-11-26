@@ -1,17 +1,16 @@
 use crate::ContainerRegistryTagChangeableAttributes;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// [TagAttributesBase, API 2021-07-01](https://learn.microsoft.com/en-us/rest/api/registry-dataplane/container-registry/get-tags?view=rest-registry-dataplane-2021-07-01#tagattributesbase).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct ContainerRegistryRepositoryTag {
-    pub created_time: DateTime<Utc>,
+    pub created_time: Timestamp,
     pub digest: String,
-    pub last_update_time: DateTime<Utc>,
+    pub last_update_time: Timestamp,
     pub name: String,
     pub changeable_attributes: ContainerRegistryTagChangeableAttributes,
     /// Omitted from the documented tag-list example; absence does not imply false.

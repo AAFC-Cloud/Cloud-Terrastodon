@@ -1,4 +1,3 @@
-use chrono::Local;
 use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_azure::HclImportable;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
@@ -11,6 +10,7 @@ use cloud_terrastodon_hcl::reflow::ReflowHclRequest;
 use cloud_terrastodon_pathing::Existy;
 use eyre::Result;
 use facet::Facet;
+use jiff::ZonedDateTime;
 use std::path::PathBuf;
 use tempfile::Builder;
 use tracing::info;
@@ -40,7 +40,7 @@ impl TerraformSourceGenerateArgs {
         let temp_dir = Builder::new()
             .prefix(&format!(
                 "generated_{}",
-                Local::now().format("%Y%m%d_%H%M%S_")
+                ZonedDateTime::now().strftime("%Y%m%d_%H%M%S_")
             ))
             .suffix(".tf")
             .tempdir_in(&work_dir)?;

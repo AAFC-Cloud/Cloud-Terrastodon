@@ -1,12 +1,12 @@
 use crate::AzureBearerToken;
 use crate::BrowserSession;
+use crate::azure_access_token::is_token_fresh;
 use crate::browser_access_token::BrowserAccessToken;
 use crate::browser_token_cache_key::BrowserTokenCacheKey;
-use chrono::Local;
-use chrono::TimeDelta;
 use cloud_terrastodon_azure_types::AzureAccessToken;
 use eyre::Result;
 use eyre::bail;
+use jiff::Timestamp;
 use std::collections::HashMap;
 
 /// Mutable credentials for one browser authentication lifetime.
@@ -36,7 +36,7 @@ impl BrowserTokenSession {
     ) -> Option<AzureAccessToken<AzureBearerToken>> {
         self.entries
             .get(key)
-            .filter(|token| token.expires_on > Local::now() + TimeDelta::seconds(120))
+            .filter(|token| is_token_fresh(token, Timestamp::now()))
             .cloned()
     }
 
@@ -75,12 +75,13 @@ mod tests {
     use super::*;
     use cloud_terrastodon_auth_types::AzureCredentialResource;
     use cloud_terrastodon_azure_types::TokenType;
+    use jiff::SignedDuration;
 
     fn token(refresh_token: Option<&str>) -> BrowserAccessToken {
         BrowserAccessToken {
             access_token: AzureAccessToken {
                 access_token: AzureBearerToken::new("synthetic-access-token"),
-                expires_on: Local::now() + TimeDelta::hours(1),
+                expires_on: Timestamp::now() + SignedDuration::from_hours(1),
                 subscription: None,
                 tenant: "11111111-1111-1111-1111-111111111111".parse().unwrap(),
                 token_type: TokenType::Bearer,

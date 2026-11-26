@@ -3,9 +3,8 @@ use crate::GiteaRepoId;
 use crate::GiteaRepoName;
 use crate::GiteaUser;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::FixedOffset;
 use facet::Facet;
+use jiff::Timestamp;
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
@@ -27,9 +26,9 @@ pub struct GiteaRepo {
     #[facet(default)]
     pub default_branch: Option<String>,
     #[facet(default)]
-    pub created_at: Option<DateTime<FixedOffset>>,
+    pub created_at: Option<Timestamp>,
     #[facet(default)]
-    pub updated_at: Option<DateTime<FixedOffset>>,
+    pub updated_at: Option<Timestamp>,
     #[facet(default)]
     pub topics: Vec<String>,
     #[facet(default)]

@@ -141,7 +141,7 @@ Standalone examples may remain self-contained, as described in
   properties with meaningful identity, vocabulary, or validation rules. Avoid
   interchangeable `String` or integer fields for distinct domain concepts.
 - Reuse existing domain types before adding new ones. Use established semantic
-  types such as `chrono::DateTime<Utc>` for timestamps. Free-form descriptions
+  types such as `jiff::Timestamp` for instants. Free-form descriptions
   and genuinely opaque values can remain strings.
 - Represent domain URL properties with domain URL types, such as
   `AzureDevOpsWorkItemUrl`, rather than interchangeable `url::Url` fields.

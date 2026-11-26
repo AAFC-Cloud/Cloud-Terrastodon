@@ -5,9 +5,8 @@ use crate::AzureDevOpsProjectReferenceVisibility;
 use crate::AzureDevOpsProjectUrl;
 use crate::AzureDevOpsTeamImageUrl;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// A shallow project reference, with missing metadata preserved.
 ///
@@ -25,7 +24,7 @@ pub struct AzureDevOpsProjectReference {
     pub revision: Option<i64>,
     pub state: Option<AzureDevOpsProjectReferenceState>,
     pub visibility: Option<AzureDevOpsProjectReferenceVisibility>,
-    pub last_update_time: Option<DateTime<Utc>>,
+    pub last_update_time: Option<Timestamp>,
     pub url: Option<AzureDevOpsProjectUrl>,
     pub default_team_image_url: Option<AzureDevOpsTeamImageUrl>,
 }

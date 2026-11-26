@@ -1,9 +1,8 @@
 use crate::AzureStorageAccountSkuConversionState;
 use crate::AzureStorageAccountSkuName;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// Progress and timestamps of an asynchronous account SKU conversion.
 ///
@@ -16,8 +15,8 @@ use facet::Facet;
 pub struct AzureStorageAccountSkuConversionStatus {
     pub sku_conversion_status: Option<AzureStorageAccountSkuConversionState>,
     pub target_sku_name: Option<AzureStorageAccountSkuName>,
-    pub start_time: Option<DateTime<Utc>>,
-    pub end_time: Option<DateTime<Utc>>,
+    pub start_time: Option<Timestamp>,
+    pub end_time: Option<Timestamp>,
 }
 
 cloud_terrastodon_registry::register_thing!(AzureStorageAccountSkuConversionStatus);

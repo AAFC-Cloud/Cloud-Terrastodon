@@ -2,10 +2,9 @@ use crate::AzureDevOpsLicenseRule;
 use crate::AzureDevOpsUserId;
 use crate::LastAccessedDate;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use facet::Facet;
+use jiff::Timestamp;
 use std::collections::BTreeMap;
 
 /// User entitlement returned after an accepted [7.1 license update](https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/update-user-entitlement?view=azure-devops-rest-7.1#userentitlement).
@@ -15,7 +14,7 @@ use std::collections::BTreeMap;
 pub struct AzureDevOpsLicenseEntitlementUpdateResponse {
     pub access_level: AzureDevOpsLicenseRule,
     /// The documented update response omits this read-only creation timestamp.
-    pub date_created: Option<DateTime<Utc>>,
+    pub date_created: Option<Timestamp>,
     pub extensions: Vec<ArbitraryJson>,
     pub group_assignments: Vec<ArbitraryJson>,
     pub id: AzureDevOpsUserId,
@@ -46,12 +45,12 @@ impl<'a> Arbitrary<'a> for AzureDevOpsLicenseEntitlementUpdateResponse {
         // supported, and don't generate a last access before account creation.
         const LAST_TIMESTAMP: i64 = 4_102_444_799;
         let created_timestamp = u.int_in_range(946_684_800..=LAST_TIMESTAMP)?;
-        let date_created = DateTime::from_timestamp(created_timestamp, 0)
-            .ok_or(arbitrary::Error::IncorrectFormat)?;
+        let date_created = Timestamp::from_second(created_timestamp)
+            .map_err(|_| arbitrary::Error::IncorrectFormat)?;
         let last_accessed_date = if bool::arbitrary(u)? {
             let timestamp = u.int_in_range(created_timestamp..=LAST_TIMESTAMP)?;
             LastAccessedDate::Some(
-                DateTime::from_timestamp(timestamp, 0).ok_or(arbitrary::Error::IncorrectFormat)?,
+                Timestamp::from_second(timestamp).map_err(|_| arbitrary::Error::IncorrectFormat)?,
             )
         } else {
             LastAccessedDate::Never

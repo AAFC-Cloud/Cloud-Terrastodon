@@ -8,8 +8,6 @@ use crate::portal_page::PortalPage;
 use crate::reflected_table::ReflectedTable;
 use crate::reflected_table_column::ReflectedTableColumn;
 use crate::reflected_value::ReflectedValue;
-use chrono::DateTime;
-use chrono::Utc;
 use cloud_terrastodon_azure::ArbitraryJson;
 use cloud_terrastodon_azure::EntraApplicationObjectId;
 use cloud_terrastodon_command::app_work::Loadable;
@@ -18,6 +16,7 @@ use eframe::egui::Id;
 use eframe::egui::ImageSource;
 use eframe::egui::ScrollArea;
 use eframe::egui::Ui;
+use jiff::Timestamp;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
@@ -33,8 +32,8 @@ pub(crate) fn show_app_registrations(app: &mut MyApp, ui: &mut Ui) {
 
     let id = Id::new(("entra-app-registrations", app.azure.account_generation));
     let cache_id = Id::new("entra-app-registration-rows");
-    let now = Utc::now();
-    let minute = now.timestamp().div_euclid(60);
+    let now = Timestamp::now();
+    let minute = now.as_second().div_euclid(60);
     let snapshot = (app.azure.account_generation, *finished_at, minute);
     let rows = ui
         .data(|data| {
@@ -60,7 +59,7 @@ pub(crate) fn show_app_registrations(app: &mut MyApp, ui: &mut Ui) {
     // Recalculate credential validity at the next UTC minute or when a new
     // inventory arrives. Parsing Graph credential metadata stays off the frame loop.
     ui.ctx().request_repaint_after(Duration::from_secs(
-        60 - now.timestamp().rem_euclid(60) as u64,
+        60 - now.as_second().rem_euclid(60) as u64,
     ));
 
     let primary = if app.egui_config.demo_mode {
@@ -134,7 +133,7 @@ pub(crate) fn show_app_registration(app: &MyApp, ui: &mut Ui, id: EntraApplicati
 
             ui.add_space(14.0);
             ui.strong("Certificates & secrets");
-            let now = Utc::now();
+            let now = Timestamp::now();
             show_credential_metadata(
                 ui,
                 "Certificates and keys",
@@ -166,7 +165,7 @@ fn show_credential_metadata(
     ui: &mut Ui,
     title: &str,
     credentials: &[ArbitraryJson],
-    now: DateTime<Utc>,
+    now: Timestamp,
     demo_mode: bool,
 ) {
     ui.collapsing(format!("{title} ({})", credentials.len()), |ui| {
@@ -195,6 +194,6 @@ fn show_credential_metadata(
     });
 }
 
-fn timestamp(value: DateTime<Utc>) -> String {
-    value.format("%Y-%m-%d %H:%M UTC").to_string()
+fn timestamp(value: Timestamp) -> String {
+    value.strftime("%Y-%m-%d %H:%M UTC").to_string()
 }

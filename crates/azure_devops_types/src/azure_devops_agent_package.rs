@@ -1,7 +1,6 @@
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 pub struct AzureDevOpsAgentPackageVersion {
@@ -13,7 +12,7 @@ pub struct AzureDevOpsAgentPackageVersion {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsAgentPackage {
-    pub created_on: DateTime<Utc>,
+    pub created_on: Timestamp,
     pub download_url: String,
     pub filename: String,
     pub hash_value: Option<String>,

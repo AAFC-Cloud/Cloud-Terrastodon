@@ -20,7 +20,7 @@ facet.workspace = true
 facet-json.workspace = true
 eyre.workspace = true
 blake3.workspace = true
-chrono.workspace = true
+jiff.workspace = true
 tempfile.workspace = true
 teamy-cancellation.workspace = true
 

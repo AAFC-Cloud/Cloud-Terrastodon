@@ -30,7 +30,7 @@ impl AzureDevOpsProjectRow {
                 AzureDevOpsProjectVisibility::Private => "Private",
                 AzureDevOpsProjectVisibility::Public => "Public",
             },
-            last_updated: project.last_update_time.to_rfc3339(),
+            last_updated: project.last_update_time.to_string(),
         }
     }
 }

@@ -1,4 +1,3 @@
-use chrono::Utc;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::AzurePimRoleActivateRequest;
 use cloud_terrastodon_azure::AzureRoleManagementPolicyAssignmentsForRoleRequest;
@@ -17,6 +16,7 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::ensure;
+use jiff::Timestamp;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -32,7 +32,7 @@ pub(crate) enum PimActivationAssignment {
 
 impl PimActivationAssignment {
     pub fn can_activate_entra(assignment: &GovernanceRoleAssignment) -> bool {
-        let now = Utc::now();
+        let now = Timestamp::now();
         matches!(
             assignment.assignment_state,
             GovernanceRoleAssignmentState::Eligible
@@ -42,7 +42,7 @@ impl PimActivationAssignment {
     }
 
     pub fn can_activate_azure(assignment: &RoleEligibilitySchedule) -> bool {
-        let now = Utc::now();
+        let now = Timestamp::now();
         let properties = &assignment.properties;
         properties.start_date_time <= now
             && properties.end_date_time.is_none_or(|end| end > now)

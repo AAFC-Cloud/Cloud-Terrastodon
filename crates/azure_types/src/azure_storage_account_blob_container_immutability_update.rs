@@ -3,9 +3,8 @@ use crate::AzureTenantId;
 use crate::EntraUserId;
 use crate::UserPrincipalName;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// An audited change to a container's immutability policy.
 ///
@@ -19,7 +18,7 @@ use facet::Facet;
 pub struct AzureStorageAccountBlobContainerImmutabilityUpdate {
     pub update: AzureStorageAccountBlobContainerImmutabilityUpdateType,
     pub immutability_period_since_creation_in_days: i32,
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: Timestamp,
     pub object_identifier: EntraUserId,
     pub tenant_id: AzureTenantId,
     /// Not included in the official history examples, even when the actor ID is present.

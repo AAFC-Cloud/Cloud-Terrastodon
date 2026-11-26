@@ -667,11 +667,11 @@ pub use role_assignment_principal_type::*;
 pub use role_assignment_resource::*;
 pub use role_assignment_resource_properties::*;
 
-mod utc_date_time_epoch_seconds_proxy;
-pub use utc_date_time_epoch_seconds_proxy::*;
+mod azure_unix_timestamp_seconds_proxy;
+pub use azure_unix_timestamp_seconds_proxy::*;
 
-mod optional_utc_date_time_epoch_seconds_proxy;
-pub use optional_utc_date_time_epoch_seconds_proxy::*;
+mod optional_azure_unix_timestamp_seconds_proxy;
+pub use optional_azure_unix_timestamp_seconds_proxy::*;
 
 mod key_vault_secret_attributes;
 pub use key_vault_secret_attributes::*;

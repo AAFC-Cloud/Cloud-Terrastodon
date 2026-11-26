@@ -4,9 +4,8 @@ use crate::RoleEligibilityScheduleId;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 use uuid::Uuid;
 
 #[derive(Debug, PartialEq, Facet, Arbitrary)]
@@ -69,9 +68,9 @@ pub struct RoleEligibilityScheduleProperties {
     #[facet(rename = "conditionVersion")]
     pub condition_version: Option<String>,
     #[facet(rename = "createdOn")]
-    pub created_on: DateTime<Utc>,
+    pub created_on: Timestamp,
     #[facet(rename = "endDateTime")]
-    pub end_date_time: Option<DateTime<Utc>>,
+    pub end_date_time: Option<Timestamp>,
     #[facet(rename = "expandedProperties")]
     pub expanded_properties: RoleEligibilityScheduleExpandedProperties,
     #[facet(rename = "memberType")]
@@ -87,11 +86,11 @@ pub struct RoleEligibilityScheduleProperties {
     #[facet(rename = "scope")]
     pub scope: crate::scopes::ScopeImpl,
     #[facet(rename = "startDateTime")]
-    pub start_date_time: DateTime<Utc>,
+    pub start_date_time: Timestamp,
     #[facet(rename = "status")]
     pub status: RoleEligibilityScheduleStatus,
     #[facet(rename = "updatedOn")]
-    pub updated_on: DateTime<Utc>,
+    pub updated_on: Timestamp,
 }
 
 #[derive(Debug, PartialEq, Facet, Arbitrary)]

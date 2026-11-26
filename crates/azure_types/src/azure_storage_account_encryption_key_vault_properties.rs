@@ -2,9 +2,8 @@ use crate::AzureKeyVaultEndpoint;
 use crate::AzureKeyVaultKeyName;
 use crate::AzureKeyVaultKeyVersionUrl;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
 use facet::Facet;
+use jiff::Timestamp;
 
 /// Key Vault reference and rotation state for customer-managed encryption.
 ///
@@ -21,8 +20,8 @@ pub struct AzureStorageAccountEncryptionKeyVaultProperties {
     #[facet(rename = "keyversion")]
     pub key_version: Option<String>,
     pub current_versioned_key_identifier: Option<AzureKeyVaultKeyVersionUrl>,
-    pub last_key_rotation_timestamp: Option<DateTime<Utc>>,
-    pub current_versioned_key_expiration_timestamp: Option<DateTime<Utc>>,
+    pub last_key_rotation_timestamp: Option<Timestamp>,
+    pub current_versioned_key_expiration_timestamp: Option<Timestamp>,
 }
 
 cloud_terrastodon_registry::register_thing!(AzureStorageAccountEncryptionKeyVaultProperties);
