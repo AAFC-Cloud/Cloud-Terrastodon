@@ -8,10 +8,6 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Performs copy writes and verification using the owning request's execution contract.
-#[expect(
-    clippy::double_must_use,
-    reason = "async-trait adds #[must_use] to an already must-use future"
-)]
 #[async_trait]
 pub(crate) trait WorkItemCopyWriter: Sync {
     async fn create(

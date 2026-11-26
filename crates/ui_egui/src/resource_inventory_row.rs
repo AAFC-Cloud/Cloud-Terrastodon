@@ -30,66 +30,6 @@ pub(crate) struct ResourceInventoryRow {
     pub subscription_name: Option<String>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::portal_tab_target::PortalTabTarget;
-
-    #[test]
-    fn inventory_name_can_link_to_a_nested_resource() {
-        let id = ScopeImpl::from(concat!(
-            "/subscriptions/00000000-0000-0000-0000-000000000001",
-            "/resourceGroups/synthetic",
-            "/providers/Microsoft.Compute/galleries/gallery/images/image/versions/1.0.0",
-        ));
-        let resource = Resource {
-            id: id.clone(),
-            kind: ResourceType::MICROSOFT_DOT_COMPUTE_SLASH_GALLERIES_SLASH_IMAGES_SLASH_VERSIONS,
-            name: "1.0.0".to_owned(),
-            location: None,
-            tags: Default::default(),
-            properties: Default::default(),
-        };
-        let (subscription, group) = ResourceInventoryRow::ancestors(&resource.id.expanded_form());
-        let row = ResourceInventoryRow::new(&resource, subscription, None, group);
-        assert_eq!(
-            ReflectedValue::new(&row)
-                .column("id")
-                .and_then(ReflectedValue::navigation_target),
-            Some(PortalTabTarget::Resource(Box::new(id)))
-        );
-    }
-
-    #[test]
-    fn scoped_inventory_excludes_containers_and_uses_exact_typed_ancestry() -> eyre::Result<()> {
-        let subscription = "00000000-0000-0000-0000-000000000001";
-        let group = AzureResourceGroupId::try_new(subscription, "synthetic")?;
-        let scope = ScopeImpl::ResourceGroup(group.clone());
-        for (owner, name, expected) in [
-            (subscription, "SYNTHETIC", true),
-            (subscription, "synthetic-extra", false),
-            ("00000000-0000-0000-0000-000000000002", "synthetic", false),
-        ] {
-            let child = format!(
-                "/SUBSCRIPTIONS/{owner}/RESOURCEGROUPS/{name}/providers/Example.Widget/widgets/sample"
-            );
-            let id = ScopeImpl::try_from_expanded(&child)?;
-            let (subscription, group) = ResourceInventoryRow::ancestors(&child);
-            assert_eq!(
-                ResourceInventoryRow::belongs_to(&id, subscription, group.as_ref(), &scope),
-                expected
-            );
-        }
-        assert!(!ResourceInventoryRow::belongs_to(
-            &scope,
-            Some(group.subscription_id),
-            Some(&group),
-            &scope
-        ));
-        Ok(())
-    }
-}
-
 impl MyApp {
     pub(crate) fn inventory_resource(&self, id: &ScopeImpl) -> Option<&Arc<Resource>> {
         self.azure.inventory_resource(id)
@@ -181,5 +121,65 @@ impl ResourceInventoryRow {
             return None;
         }
         Some((parts.next()?.parse().ok()?, parts))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::portal_tab_target::PortalTabTarget;
+
+    #[test]
+    fn inventory_name_can_link_to_a_nested_resource() {
+        let id = ScopeImpl::from(concat!(
+            "/subscriptions/00000000-0000-0000-0000-000000000001",
+            "/resourceGroups/synthetic",
+            "/providers/Microsoft.Compute/galleries/gallery/images/image/versions/1.0.0",
+        ));
+        let resource = Resource {
+            id: id.clone(),
+            kind: ResourceType::MICROSOFT_DOT_COMPUTE_SLASH_GALLERIES_SLASH_IMAGES_SLASH_VERSIONS,
+            name: "1.0.0".to_owned(),
+            location: None,
+            tags: Default::default(),
+            properties: Default::default(),
+        };
+        let (subscription, group) = ResourceInventoryRow::ancestors(&resource.id.expanded_form());
+        let row = ResourceInventoryRow::new(&resource, subscription, None, group);
+        assert_eq!(
+            ReflectedValue::new(&row)
+                .column("id")
+                .and_then(ReflectedValue::navigation_target),
+            Some(PortalTabTarget::Resource(Box::new(id)))
+        );
+    }
+
+    #[test]
+    fn scoped_inventory_excludes_containers_and_uses_exact_typed_ancestry() -> eyre::Result<()> {
+        let subscription = "00000000-0000-0000-0000-000000000001";
+        let group = AzureResourceGroupId::try_new(subscription, "synthetic")?;
+        let scope = ScopeImpl::ResourceGroup(group.clone());
+        for (owner, name, expected) in [
+            (subscription, "SYNTHETIC", true),
+            (subscription, "synthetic-extra", false),
+            ("00000000-0000-0000-0000-000000000002", "synthetic", false),
+        ] {
+            let child = format!(
+                "/SUBSCRIPTIONS/{owner}/RESOURCEGROUPS/{name}/providers/Example.Widget/widgets/sample"
+            );
+            let id = ScopeImpl::try_from_expanded(&child)?;
+            let (subscription, group) = ResourceInventoryRow::ancestors(&child);
+            assert_eq!(
+                ResourceInventoryRow::belongs_to(&id, subscription, group.as_ref(), &scope),
+                expected
+            );
+        }
+        assert!(!ResourceInventoryRow::belongs_to(
+            &scope,
+            Some(group.subscription_id),
+            Some(&group),
+            &scope
+        ));
+        Ok(())
     }
 }

@@ -141,10 +141,12 @@ async fn resolve_azure_devops_sources(
                 )
             })?,
             None if entry.discovery_url == entry.source_url => entry.source_url.clone(),
-            None => bail!(
-                "Azure DevOps asset {} is absent from the public status page's asset map",
-                entry.logical_name
-            ),
+            None => {
+                bail!(
+                    "Azure DevOps asset {} is absent from the public status page's asset map",
+                    entry.logical_name
+                );
+            }
         };
         ensure!(
             resolved
@@ -208,7 +210,7 @@ fn asset_map_json(document: &str) -> Result<&str> {
         bail!("The Azure DevOps public asset map has an unterminated JSON object");
     }
 
-    bail!("The Azure DevOps public status page has no asset map")
+    bail!("The Azure DevOps public status page has no asset map");
 }
 
 #[cfg(test)]

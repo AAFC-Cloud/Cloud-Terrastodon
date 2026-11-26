@@ -1,56 +1,42 @@
-# Unreleased
+# v0.38.0
 
-- Choose Azure accounts in each page's header. Open duplicate resource or directory tabs side by side with independent selections and results.
+## Desktop app
 
-- Find Accounts and Azure tenants alongside Logs and Background work under About. Browse them in searchable tables and open tenant details to edit aliases.
+- Double-click the Windows executable in File Explorer to open the desktop app. A terminal launch without arguments still opens the interactive menu. Use `ct egui` to start the desktop app explicitly.
 
-- Browse Projects inside each Azure DevOps organization's workspace, with an Overview and hierarchy breadcrumbs. Ctrl-click navigation items and links to open background preview tabs.
+- Arrange work in split panes with vertical resource tabs. Keep previews open, group or pin tabs, and use Ctrl-click to open a background preview. Ctrl+T opens a fresh Home preview and middle-click closes a tab. Open dropped files in tabs and rearrange shortcuts in the sidebar.
 
-- Track Azure DevOps organizations on this device with `ct az devops org list`, `add`, `show`, and `remove`. The desktop organization list deemphasizes organizations associated with a different Azure tenant.
+- Navigate with tab history and clickable breadcrumbs. The address bar can show a portal URL, a CLI command, or a resource ID when available. Use the toolbar to reload the current view, open its portal link, or browse history.
 
-- Browse Entra users and groups from the desktop sidebar and from role assignments. Scope links display subscription and management group names when available.
+- Choose an Azure account and credential source in each Azure page's header. Compare duplicate resource or directory tabs side by side with independent selections and results. Restore the last desktop account at startup and use Demo mode to mask displayed email addresses.
 
-- Choose which address the desktop toolbar displays, open available portal links in a browser, and refresh views from the toolbar.
+- Manage accounts and tracked tenants under About, alongside Logs and Background work. Register credentials, sign in or renew sessions, and reload changes made from the CLI. Azure CLI sign-in supports device codes and cancellation with cleanup. Entra registration requires a tenant UUID or tracked alias.
 
-- Choose an Azure request scope and timespan in the desktop Activity Log. Search, filter, sort, and group the returned events in the Facet table.
+- Browse Azure resources, resource groups, subscriptions, and management groups in shared inventory tables with sorting, filters, grouping, and selection. Open linked resource details, view the Activity Log and read-only access control, and copy resource IDs or rendered output. Use the Activity Log's scope and time filters to narrow events.
 
-- Open any Azure resource from desktop inventories in an Overview with Activity Log and access control. Essentials offers Copy ID and Azure, Tree, JSON, Facet Pretty, and Text representations.
+- Browse Entra users, groups, and application registrations. Follow principal and scope links in role assignments and inspect eligible and active Privileged Identity Management roles. Browse tags across resources or edit them on a specific resource.
 
-- Add desktop resource inventory icons for Azure App Configuration, AI, compute, Kubernetes, managed identities, and networking.
+- Browse Projects from each Azure DevOps organization and open project views for repos, work items, groups, teams, service connections, agent pools, pipelines, and test plans. Choose credentials for the organization in its workspace. The organization list dims entries associated with a different Azure tenant.
+
+- Inspect storage account audit findings, explore blob containers, and review storage networking rules. The desktop Auditing workspace also runs Azure and Azure DevOps audits.
+
+- Inspect retained error reports and copy plain-text diagnostics. The Logs view supports filtering and copying records, and active background jobs show their elapsed time. The app uses egui 0.36.2 with glow, the OFL-licensed Allo font, and embedded service icons.
+
+## Commands, libraries, and infrastructure
 
 - Resolve Azure tenants from an explicit ID or alias, an explicitly selected account, or the configured tenant default. For commands that use the configured default, omit `--tenant` and `--account`. The literal `--tenant default` now looks up a tracked alias named `default`.
 
-- Browse resource group and subscription workspaces with scoped resource inventories, an Activity Log, read-only access control, and copyable JSON. Open a fresh preview with New tab or Ctrl+T. Desktop inventory tables use horizontal dividers, sortable headers, and selection checkboxes.
+- Accept account aliases alongside UUIDs in `ct account` commands. Use `ct account logout --all` to retire all registered credential sessions while keeping account registrations and defaults. See the [authentication guide](docs/authentication.md) for provisioning and migration.
 
-- Add an icon toolbar and rounded address field to desktop tabs. Refresh the current view and open or copy Azure Portal links for supported resources. Use vertical tabs with resource icons, middle-click to close a tab, and return to a fresh Home preview after closing the last tab.
+- Track Azure DevOps organizations and Server collections on this device with `ct az devops org list`, `add`, `show`, and `remove`.
 
-- Navigate desktop tabs with Back and Forward. Browse Azure resource ancestry through clickable breadcrumbs, follow reflected resource IDs, and copy the CLI address for supported views.
+- Add typed Azure network security group inventory and details. Follow all pages of Azure role eligibility schedules. Cache project work item inventories and fix decoding of Azure DevOps service connection creators and license entitlements.
 
-- Switch Azure accounts from header cards with credential-source chips and optional directory profile details. Restore the last desktop account and source at launch, show the active account first, and mask displayed email addresses with the account picker's Demo mode. Manage registered accounts and tracked Azure tenants in their own tabs.
+- Preserve Azure address prefixes when serializing typed values to JSON, including values read from the singular address-prefix field.
 
-- Choose device-code sign-in explicitly for Azure CLI accounts in the desktop app.
+- Reuse eligible disk-cached results across CLI and GUI runs after account admission. Azure CLI and browser authentication share the cache for the same registered Entra account and tenant. The desktop app releases the cache root lock when its cache-backed jobs finish, allowing an independent CLI process to use the cache while the window remains open.
 
-- Cancel interactive Azure CLI sign-in from the desktop and clean up incomplete sessions. Require an explicit tenant UUID or tracked alias when registering an Entra account in the GUI.
-
-- Accept account aliases alongside UUIDs in `ct account` commands. Use `ct account logout --all` to retire all registered credential sessions while keeping account registrations and defaults.
-
-- Open linked storage accounts in preview tabs with the matching `ct az storage account show` command and a reflected request and response. Use View output to inspect and copy the resource ID and CLI-formatted output.
-
-- Browse resource groups with a dedicated request, a copyable CLI command, response filters, linked details, and row selection. Use preview tabs and Keep Open for navigation, rearrange the sidebar, and open dropped files in tabs.
-
-- Add management-group icons and inventory. Browse Azure DevOps organizations and projects from separate desktop sidebar pages and choose credentials in the window.
-
-- Release the shared work-cache lock when the standalone egui window finishes its cache-backed jobs. CLI commands can reuse or invalidate the same disk cache while the window is idle. Overlapping GUI jobs share one cache owner.
-
-- Manage account registrations, credential sources, and tracked Azure tenants from the desktop account menu. Switch signed-in Entra sources, sign in or renew a session with in-window prompts, and reload account changes made in the CLI without restarting the app.
-
-- Use `teamy-tracing 0.3.0` from crates.io for retained reports, live log capture, and diagnostic widgets. Add a Logs view, upgrade to egui 0.36.2 with glow, and use Allo variable-font weights.
-
-- Bundle the OFL-licensed Allo variable font for GUI typography and arrows, render the header brand in white, reuse the executable's Windows icon, and replace missing navigation glyphs. Show retained error reports with terminal colors and a plain-text Copy error action; keep account aliases, source details, and the picker chevron readable in the header.
-
-- Add a portal-style GUI with a blue header, resource search, account/source switching, left navigation, service tiles, and a filtered resource inventory. Integrate the iconography catalogue and maintenance tool with embedded SVG service icons, and prevent earlier account loads from replacing the selected account's data.
-
-- Share GUI background-load error reports between logging and application state, preserving terminal colors and typed causes while rendering plain diagnostics in GUI labels.
+- Use `teamy-tracing 0.3.0` from crates.io for live log capture, retained diagnostic reports, and shared GUI widgets. Log execution and cache-miss reasons, and suppress repeated SVG stylesheet warnings and routine Figue default-extraction messages in terminal output.
 
 - Preserve original JSON, reflection, CLI-input, credential-store, and terminal-coordination errors beneath operation context instead of replacing their causes with formatted strings. Retain deliberate suppression of sensitive authentication and request details.
 
@@ -58,9 +44,7 @@
 
 - Retain shared, typed error reports in diagnostic log fields until presentation. Preserve color-eyre terminal styling and full plain reports in JSON and GUI text; escape terminal commands. Preserve config-decoding error sources, and return primary GUI shutdown failures once while logging otherwise-lost secondary failures.
 
-- Keep Azure and entrypoint debug archives below the Windows archive-format transition that breaks linking on Rust 1.99.1. Use limited debug information for those two crates in development and test builds, retaining source-line diagnostics and the existing release settings.
-
-- Use the coordinated registry Facet rc.9, JSON rc.11, Figue rc.7 and Cancellation 0.8.2 releases without Cargo patches. Adopt the unified cancellation error helper while retaining original error contexts, keep one Core/reflection identity, and enable incremental release compilation for the entrypoint at optimization level 3.
+- Use limited debug information in development and test builds to retain source-line diagnostics and reduce Windows archive size. Enable incremental release compilation for the entrypoint at optimization level 3.
 
 - Share cancellation scope lifecycle code across typed futures to reduce repeated code generation, preserving deferrals, borrowed futures, and result/destructor ordering.
 
@@ -168,7 +152,7 @@
 
 - Rename `cloud_terrastodon_credentials` to `cloud_terrastodon_auth` and move authentication selections and credential audiences into `cloud_terrastodon_auth_types`, without compatibility exports. The facade now uses `auth` and `auth-types`; `AzureTenantId` remains in `azure_types`.
 
-- Require an explicit tenant for Azure CLI bearer authentication, including Azure DevOps; PAT authentication remains tenant-independent. Establish persistent, account-owned CLI logins with `ct account login <account-id>` after registering the source and tenant. Token acquisition no longer relies on ambient CLI login state or starts an implicit login. Policy remediation and storage-backend container inventory use typed ARM REST requests; the CLI service runner and allowlist are removed. Container inventory is management metadata and does not establish blob-data access. See [authentication](docs/authentication.md).
+- Resolve a concrete tenant for Azure CLI bearer authentication, including Azure DevOps. PAT authentication remains tenant-independent. Establish persistent, account-owned CLI logins with `ct account login <account-id>` after registering the source and tenant. Token acquisition no longer relies on ambient CLI login state or starts an implicit login. Policy remediation and storage-backend container inventory use typed ARM REST requests; the CLI service runner and allowlist are removed. See [authentication](docs/authentication.md).
 
 - Expose resource-provider metadata through `azure_types` and `azure::AzureResourceProviderListRequest`, including tenant-scoped pagination, cached pages, and invalidation. The maintenance tool consumes this SDK surface; provider-relative names preserve unknown types and service spelling for enum generation.
 

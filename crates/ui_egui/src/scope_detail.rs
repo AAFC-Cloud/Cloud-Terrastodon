@@ -128,7 +128,8 @@ fn scope_overview_ui(app: &mut MyApp, ui: &mut Ui, scope: &PortalResourceScope) 
                     .max_height(360.0)
                     .show(ui, |ui| {
                         if let PortalResourceScope::StorageAccount(id) = scope
-                            && let Some(inspection) = app.azure.storage_account_browser.entries.get(id)
+                            && let Some(inspection) =
+                                app.azure.storage_account_browser.entries.get(id)
                         {
                             ui.collapsing("Request", |ui| {
                                 ReflectedValue::new(&inspection.request).show(ui)

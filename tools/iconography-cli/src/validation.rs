@@ -251,10 +251,9 @@ pub fn validate_svg(bytes: &[u8], label: &str) -> Result<()> {
                 if style
                     .as_ref()
                     .is_some_and(|(style_depth, _)| *style_depth == depth)
+                    && let Some((_, stylesheet)) = style.take()
                 {
-                    if let Some((_, stylesheet)) = style.take() {
-                        validate_css_references(&stylesheet, label)?;
-                    }
+                    validate_css_references(&stylesheet, label)?;
                 }
                 depth = depth
                     .checked_sub(1)

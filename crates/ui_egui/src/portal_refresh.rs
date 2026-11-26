@@ -137,7 +137,9 @@ impl MyApp {
                         PortalResourceScope::ManagementGroup(_) => {
                             !matches!(content.management_groups, Loadable::Loading { .. })
                         }
-                        PortalResourceScope::Resource(scope) => can_refresh_resource(content, scope),
+                        PortalResourceScope::Resource(scope) => {
+                            can_refresh_resource(content, scope)
+                        }
                         PortalResourceScope::StorageAccount(id) => !content
                             .storage_account_browser
                             .entries

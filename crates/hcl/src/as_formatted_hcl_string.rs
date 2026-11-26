@@ -4,10 +4,6 @@ use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_hcl_types::AsHclString;
 
 /// Formats HCL text through the configured Terraform executable.
-#[expect(
-    clippy::double_must_use,
-    reason = "async-trait adds #[must_use] to an already must-use future"
-)]
 #[async_trait::async_trait]
 pub trait AsFormattedHclString: AsHclString + Sync {
     /// Passes the text to `terraform fmt -` using the caller's cancellation scope.

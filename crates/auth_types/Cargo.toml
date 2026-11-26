@@ -1,7 +1,7 @@
 [package]
 name = "cloud_terrastodon_auth_types"
 description = "Authentication selections and credential value contracts for Cloud Terrastodon"
-version = "0.37.0" # CT_VERSION
+version = "0.38.0" # CT_VERSION
 readme.workspace = true
 edition.workspace = true
 authors.workspace = true

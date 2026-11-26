@@ -283,7 +283,9 @@ pub(crate) fn refresh_tagged_inventories(app: &mut MyApp) {
             match app.azure.network_security_groups.get_mut(id) {
                 Some(Loadable::Loading { .. }) => true,
                 Some(Loadable::Loaded { value, .. }) => {
-                    Arc::make_mut(value).tags.clone_from(&updated.properties.tags);
+                    Arc::make_mut(value)
+                        .tags
+                        .clone_from(&updated.properties.tags);
                     false
                 }
                 _ => false,

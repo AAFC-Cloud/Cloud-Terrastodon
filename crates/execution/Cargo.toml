@@ -1,7 +1,7 @@
 [package]
 name = "cloud_terrastodon_execution"
 description = "Scoped request execution and injected authentication for Cloud Terrastodon"
-version = "0.37.0" # CT_VERSION
+version = "0.38.0" # CT_VERSION
 readme.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -28,7 +28,8 @@ tempfile.workspace = true
 url.workspace = true
 
 [dev-dependencies]
-cloud_terrastodon_execution = { workspace = true, features = ["test-support"] }
+# Enable test support in the source tree without requiring a published self dependency.
+cloud_terrastodon_execution = { path = ".", features = ["test-support"] }
 tempfile.workspace = true
 
 [lints]

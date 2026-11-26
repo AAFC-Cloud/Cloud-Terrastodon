@@ -9,7 +9,7 @@ license.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
-version = "0.37.0" # CT_VERSION
+version = "0.38.0" # CT_VERSION
 
 [dependencies]
 cloud_terrastodon_execution.workspace = true

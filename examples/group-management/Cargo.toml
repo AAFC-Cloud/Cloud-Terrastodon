@@ -13,7 +13,7 @@ name = "group-management"
 path = "src/main.rs"
 
 [dependencies]
-cloud_terrastodon = { path = "../..", version = "=0.37.0", default-features = false, features = ["app", "azure", "azure-types", "command", "auth", "auth-types", "rest", "execution"] }
+cloud_terrastodon = { path = "../..", version = "=0.38.0", default-features = false, features = ["app", "azure", "azure-types", "command", "auth", "auth-types", "rest", "execution"] } # CT_VERSION
 cloud_terrastodon_cli_types.workspace = true
 # Figue's attribute expansion requires the same canonical Facet alias as the facade.
 facet.workspace = true

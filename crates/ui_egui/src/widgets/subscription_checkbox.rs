@@ -32,7 +32,8 @@ pub fn draw_subscription_checkbox(app: &mut MyApp, ui: &mut Ui, subscription: &S
 
 fn draw_header(app: &mut MyApp, subscription: &Subscription, ui: &mut Ui) {
     ui.horizontal(|ui| {
-        let resource_group_count = app.azure
+        let resource_group_count = app
+            .azure
             .resource_groups
             .as_loaded()
             .map(|resource_groups| resource_groups.get_for_subscription(&subscription.id))

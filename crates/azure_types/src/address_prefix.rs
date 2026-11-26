@@ -19,14 +19,21 @@ impl std::fmt::Display for AddressPrefix {
         }
     }
 }
+
+impl From<&str> for AddressPrefix {
+    fn from(value: &str) -> Self {
+        match value.parse::<Ipv4Network>() {
+            Ok(network) => Self::Ipv4(network),
+            Err(_) => Self::Other(CompactString::new(value)),
+        }
+    }
+}
+
 impl std::str::FromStr for AddressPrefix {
     type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s.parse::<Ipv4Network>().map(AddressPrefix::Ipv4) {
-            Ok(address_prefix) => address_prefix,
-            Err(_) => AddressPrefix::Other(CompactString::new(s)),
-        })
+        Ok(Self::from(s))
     }
 }
 

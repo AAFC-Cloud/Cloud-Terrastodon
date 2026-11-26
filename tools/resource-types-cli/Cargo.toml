@@ -1,7 +1,7 @@
 [package]
 name = "cloud_terrastodon_resource_types_cli"
 description = "Maintenance CLI for Cloud Terrastodon Azure resource types"
-version = "0.37.0" # CT_VERSION
+version = "0.38.0" # CT_VERSION
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true

@@ -84,10 +84,6 @@ impl AppDir {
     }
 }
 
-#[expect(
-    clippy::double_must_use,
-    reason = "async-trait adds #[must_use] to an already must-use future"
-)]
 #[async_trait::async_trait]
 pub trait Existy {
     async fn ensure_dir_exists(&self) -> eyre::Result<()>;

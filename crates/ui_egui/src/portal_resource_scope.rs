@@ -68,13 +68,13 @@ impl PortalResourceScope {
             Self::Subscription(_) => Cow::Borrowed("Subscription"),
             Self::ManagementGroup(_) => Cow::Borrowed("Management group"),
             Self::StorageAccount(_) => Cow::Borrowed("Storage account"),
-            Self::Resource(_) => self.inventory_resource_kind(app).map_or(
-                Cow::Borrowed("Resource"),
-                |kind| {
-                    icon_for_resource_type(kind)
-                        .map_or_else(|| Cow::Owned(kind.to_string()), |icon| icon.name())
-                },
-            ),
+            Self::Resource(_) => {
+                self.inventory_resource_kind(app)
+                    .map_or(Cow::Borrowed("Resource"), |kind| {
+                        icon_for_resource_type(kind)
+                            .map_or_else(|| Cow::Owned(kind.to_string()), |icon| icon.name())
+                    })
+            }
         }
     }
 

@@ -5,6 +5,7 @@
 mod access_token;
 mod address_prefix;
 mod address_prefixes;
+mod address_prefixes_proxy;
 mod all_or;
 mod arbitrary_json;
 mod azure_activity_log_event;
@@ -326,6 +327,7 @@ mod virtual_network_properties;
 pub use crate::access_token::*;
 pub use crate::address_prefix::*;
 pub use crate::address_prefixes::*;
+pub use crate::address_prefixes_proxy::*;
 pub use crate::all_or::*;
 pub use crate::arbitrary_json::*;
 pub use crate::azure_activity_log_event::*;

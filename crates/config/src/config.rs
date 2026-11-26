@@ -8,10 +8,6 @@ use std::path::PathBuf;
 use tokio::fs;
 use tracing::debug;
 use tracing::warn;
-#[expect(
-    clippy::double_must_use,
-    reason = "async-trait adds #[must_use] to an already must-use future"
-)]
 #[async_trait::async_trait]
 pub trait Config:
     Sized

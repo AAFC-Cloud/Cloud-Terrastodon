@@ -11,14 +11,16 @@ use std::sync::Arc;
 use std::sync::Weak;
 use teamy_cancellation::CancellationScope;
 
+type RenderedResourceOutput = (
+    OutputFormat,
+    Weak<dyn Any + Send + Sync>,
+    Arc<Result<Option<String>>>,
+);
+
 /// Last rendered representation of a resource snapshot.
 #[derive(Clone, Default)]
 pub(crate) struct ResourceOutput {
-    rendered: Option<(
-        OutputFormat,
-        Weak<dyn Any + Send + Sync>,
-        Arc<Result<Option<String>>>,
-    )>,
+    rendered: Option<RenderedResourceOutput>,
 }
 
 impl ResourceOutput {

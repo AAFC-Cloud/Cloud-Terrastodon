@@ -4,8 +4,8 @@ Embedded SVGs with a concrete type for each icon and no build-time downloads.
 
 ```toml
 [dependencies]
-cloud_terrastodon_iconography = "0.37.0"
-cloud_terrastodon_iconography_azure_devops = { version = "0.37.0", default-features = false, features = ["boards"] }
+cloud_terrastodon_iconography = "0.38.0"
+cloud_terrastodon_iconography_azure_devops = { version = "0.38.0", default-features = false, features = ["boards"] }
 ```
 
 ```rust

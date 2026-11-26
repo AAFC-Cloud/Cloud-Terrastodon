@@ -31,7 +31,7 @@ fn exclude_tracy_frame_mark(meta: &Metadata<'_>) -> bool {
     meta.fields().field("tracy.frame_mark").is_none()
 }
 
-#[cfg(feature = "tracy")]
+#[cfg(all(feature = "tracy", not(test)))]
 fn tracy_log_filter() -> Result<EnvFilter> {
     Ok(EnvFilter::builder().parse("trace")?)
 }

@@ -34,27 +34,22 @@ Function Get-VersionFromUser {
 $newVersion = Get-VersionFromUser -InitialVersion $VersionParameter
 Write-Host "Updating to version: $newVersion"
 
-$cargoTomlPath = Join-Path $PSScriptRoot "Cargo.toml"
-$cargoTomlContent = Get-Content $cargoTomlPath -Raw
-
-# Update root Cargo.toml version fields
-$patternRoot = '"\d+\.\d+\.\d+"(\s*#\s*CT_VERSION)'
-$replacementRoot = '"' + $newVersion + '"$1'
-$updatedCargoTomlContent = $cargoTomlContent -replace $patternRoot, $replacementRoot
-Set-Content -Path $cargoTomlPath -Value ($updatedCargoTomlContent.Trim() + "`n") -NoNewLine
-Write-Host "Updated root Cargo.toml to version $newVersion"
-
-# Update all crates' Cargo.toml files
-$cratesDir = Join-Path $PSScriptRoot "crates"
-Get-ChildItem -Path $cratesDir -Directory | ForEach-Object {
-    $crateTomlPath = Join-Path $_.FullName "Cargo.toml"
-    if (Test-Path $crateTomlPath) {
-        $crateContent = Get-Content $crateTomlPath -Raw
-        # Only update version lines that have the # CT_VERSION comment
-        $patternCrate = '(?m)^(version\s*=\s*)"\d+\.\d+\.\d+"(\s*#\s*CT_VERSION)'
-        $replacementCrate = '$1"' + $newVersion + '"$2'
-        $updatedCrateContent = $crateContent -replace $patternCrate, $replacementCrate
-        Set-Content -Path $crateTomlPath -Value ($updatedCrateContent.Trim() + "`n") -NoNewLine
-        Write-Host "Updated $crateTomlPath to version $newVersion"
+$memberRoots = 'crates', 'examples', 'tools' | ForEach-Object { Join-Path $PSScriptRoot $_ }
+$manifestPaths = @(
+    Join-Path $PSScriptRoot 'Cargo.toml'
+    Get-ChildItem -LiteralPath $memberRoots -Directory | ForEach-Object {
+        Join-Path $_.FullName 'Cargo.toml'
     }
+)
+
+# Update marked package versions and dependency requirements, preserving exact pins.
+$pattern = '(?m)(\bversion[ \t]*=[ \t]*"=?)\d+\.\d+\.\d+("[^\r\n]*#[ \t]*CT_VERSION[ \t]*\r?$)'
+$replacement = '${1}' + $newVersion + '${2}'
+foreach ($manifestPath in $manifestPaths) {
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { continue }
+    $content = [IO.File]::ReadAllText($manifestPath)
+    $updatedContent = $content -creplace $pattern, $replacement
+    if ($updatedContent -ceq $content) { continue }
+    [IO.File]::WriteAllText($manifestPath, $updatedContent)
+    Write-Host "Updated $manifestPath to version $newVersion"
 }

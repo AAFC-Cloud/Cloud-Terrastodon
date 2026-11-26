@@ -39,8 +39,9 @@ use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::sync::Notify;
+use tracing::Instrument;
 use tracing::Level;
-use tracing::instrument::WithSubscriber;
+use tracing::info_span;
 
 struct Operation;
 struct Wrapper;
@@ -187,6 +188,10 @@ async fn cold_rest_lookup_explains_the_disk_miss_before_sending() -> Result<()> 
         .with_ansi(false)
         .with_writer(log.reopen()?)
         .finish();
+    // Use one process-wide subscriber so sibling tests cannot register cache
+    // log callsites against an empty dispatcher. Select this request's span below.
+    tracing::subscriber::set_global_default(subscriber)?;
+    tracing::callsite::rebuild_interest_cache();
     CancellationToken::new()
         .with_async_scope(|scope| async move {
             let server = LocalServer::start(200, "[7]", None).await?;
@@ -210,16 +215,23 @@ async fn cold_rest_lookup_explains_the_disk_miss_before_sending() -> Result<()> 
             assert_eq!(server.requests.load(Ordering::SeqCst), 1);
             eyre::Ok(())
         })
-        .with_subscriber(subscriber)
+        .instrument(info_span!("cold_rest_cache_lookup"))
         .await?;
 
-    let log = std::fs::read_to_string(log.path())?;
-    let memory_miss = log.find("Memory cache miss: no decoded result").unwrap();
-    let disk_miss = log
-        .find("Disk cache miss: no valid artifact selection")
-        .unwrap();
-    let sent = log.find("Executing REST request").unwrap();
-    let replayed = log.find("Replayed cached REST response").unwrap();
+    let contents = std::fs::read_to_string(log.path())?;
+    let log = contents
+        .lines()
+        .filter(|line| line.contains("cold_rest_cache_lookup:"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let position = |message| {
+        log.find(message)
+            .unwrap_or_else(|| panic!("Missing {message} in the cache lookup log:\n{log}"))
+    };
+    let memory_miss = position("Memory cache miss: no decoded result");
+    let disk_miss = position("Disk cache miss: no valid artifact selection");
+    let sent = position("Executing REST request");
+    let replayed = position("Replayed cached REST response");
     assert!(memory_miss < disk_miss && disk_miss < sent && sent < replayed);
     assert_eq!(log.matches("Disk cache miss:").count(), 1);
     Ok(())

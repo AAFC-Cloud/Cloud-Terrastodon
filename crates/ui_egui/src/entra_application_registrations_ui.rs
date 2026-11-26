@@ -77,7 +77,12 @@ pub(crate) fn show_app_registrations(app: &mut MyApp, ui: &mut Ui) {
     if let Some(target) = ReflectedTable::new(id, &columns)
         .with_result_count()
         .with_search_hint("Search app registrations")
-        .show_explorable(ui, rows.iter(), |row| id.with(row.id), &mut app.azure.checkboxes)
+        .show_explorable(
+            ui,
+            rows.iter(),
+            |row| id.with(row.id),
+            &mut app.azure.checkboxes,
+        )
     {
         target.apply(app);
     }
