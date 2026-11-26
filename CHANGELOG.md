@@ -14,23 +14,55 @@
 
 - Browse Azure resources, resource groups, subscriptions, and management groups in shared inventory tables with sorting, filters, grouping, and selection. Open linked resource details, view the Activity Log and read-only access control, and copy resource IDs or rendered output. Use the Activity Log's scope and time filters to narrow events.
 
-- Browse Entra users, groups, and application registrations. Follow principal and scope links in role assignments and inspect eligible and active Privileged Identity Management roles. Browse tags across resources or edit them on a specific resource.
+- Browse Entra users, groups, and application registrations, with profile thumbnails in user and role-assignment views. Follow principal and scope links in role assignments, filter and group assignments by principal type, inspect assignment conditions and eligible/active Privileged Identity Management roles, and browse or edit resource tags.
 
 - Browse Projects from each Azure DevOps organization and open project views for repos, work items, groups, teams, service connections, agent pools, pipelines, and test plans. Choose credentials for the organization in its workspace. The organization list dims entries associated with a different Azure tenant.
 
-- Inspect storage account audit findings, explore blob containers, and review storage networking rules. The desktop Auditing workspace also runs Azure and Azure DevOps audits.
+- Inspect storage account audit findings, explore blob containers, and review storage networking rules. Enter an IPv4 or IPv6 address to check it against the account's reported firewall rules. The desktop Auditing workspace also runs Azure and Azure DevOps audits.
 
 - Inspect retained error reports and copy plain-text diagnostics. The Logs view supports filtering and copying records, and active background jobs show their elapsed time. The app uses egui 0.36.2 with glow, the OFL-licensed Allo font, and embedded service icons.
 
 ## Commands, libraries, and infrastructure
 
-- Resolve Azure tenants from an explicit ID or alias, an explicitly selected account, or the configured tenant default. For commands that use the configured default, omit `--tenant` and `--account`. The literal `--tenant default` now looks up a tracked alias named `default`.
+- Add named Cloud Terrastodon accounts with stable IDs, tenant/service-scoped aliases, explicit defaults, and isolated CLI, browser, workload, PAT, and Gitea credential sessions. Entra user accounts can register CLI and browser mechanisms after principal verification, choose a preferred source, and override it per request.
 
-- Accept account aliases alongside UUIDs in `ct account` commands. Use `ct account logout --all` to retire all registered credential sessions while keeping account registrations and defaults. See the [authentication guide](docs/authentication.md) for provisioning and migration.
+- Use account-owned credential sessions with `ct account login` after registering the source and tenant. This replaces the former `ct az tenant login`, `logout`, and `set-auth-source` commands. Source-specific logout preserves other mechanisms; account retirement drains required work and invalidates affected cache partitions. Azure CLI bearer sessions use an explicit tenant and no longer rely on ambient login state or start an implicit login; PAT authentication remains tenant-independent. See the [authentication guide](docs/authentication.md).
+
+- Resolve Azure tenants from an explicit ID or alias, an explicitly selected account, or the configured tenant default. For commands that use the configured default, omit `--tenant` and `--account`. The literal `--tenant default` looks up a tracked alias named `default`.
+
+- Move authentication selectors from global arguments into authenticated command leaves. Resolve concrete tenant, account, and source selections before request construction; local commands need no authentication arguments. Use `--auth-source none` to reject authenticated operations before account or default lookup.
 
 - Track Azure DevOps organizations and Server collections on this device with `ct az devops org list`, `add`, `show`, and `remove`.
 
-- Add typed Azure network security group inventory and details. Follow all pages of Azure role eligibility schedules. Cache project work item inventories and fix decoding of Azure DevOps service connection creators and license entitlements.
+- Add typed Azure network security group inventory and details. Follow every page of Azure role eligibility schedules, cache project work item inventories, and fix decoding and pagination for Azure DevOps service connection creators and license entitlements.
+
+- Add `ct az storage account list` and `show`, reusing the shared storage-account inventory for listing and a direct ARM request for individual accounts. Both support `--no-cache` and shared output formats.
+
+- Add `ct az storage blob container list` and `show` with typed storage-account/container selection, shared output formats, and `--no-cache`. Container listing reuses the audit inventory; showing a container fetches its properties directly through ARM.
+
+- Add `ct az storage account audit` and include its findings in `ct az audit`. Report accounts that enable anonymous blob access while every container is private, including empty accounts. Preserve network settings and tags, report missing settings and failed inventories as inconclusive, and support `--clean` to refresh account settings and container pages.
+
+- Replace opaque storage-account properties with the typed `AzureStorageAccountProperties` model and nested service records, including the cross-tenant delegation SAS setting. Storage audits reuse the normal account inventory and cache.
+
+- Add `ct dump plan` for offline planning of read-only request dependencies from explicit tenant, organization, and authentication assumptions. Export JSON or an editable Excalidraw graph, and choose target types interactively from a terminal picker without executing requests. The Ratatui object explorer can also build and render request and object diagrams; see [dump planning](docs/dump-planning.md) and [object explorer](docs/object-explorer.md).
+
+- Add `ct excalidraw interactive` to synchronize a local `.excalidraw` file with terminal question readouts and a live structured Logs frame. It uses local files and does not call cloud APIs; see [interactive Excalidraw](docs/excalidraw-interactive.md).
+
+- Add `ct source hunt` to scan nested local Git repositories for file-extension counts, remotes, and commit authors without contacting remotes or reading source contents. Filter extensions and directories, limit scan jobs, and emit JSON; see [source hunt](docs/SOURCE_HUNT.md).
+
+- Add a multi-file `group-management` consumer example for existing Entra groups. It validates tenant-qualified `groupId` inputs, preflights workload identity, and creates read-only plans for explicit exact/additive member and owner policies, with blockers when inventories are incomplete. It does not apply changes.
+
+- Complete the request-first SDK cutover: requests carry serializable account/source/tenant selections and execute through a caller-owned executor. Remove trivial fetch factories, runtime credential/cancellation fields, reflective cancellation injection, and ambient Azure CLI defaults. This is a breaking API change without compatibility exports.
+
+- Split Azure, Azure DevOps, and source command implementations into dedicated CLI crates, with shared scalar CLI contracts in `cli_types`; keep application startup, root dispatch, global arguments, and output emission in `entrypoint`.
+
+- Rename the shared principal family to Entra-prefixed types, validate user principal names and group display names, and return shallow `EntraDirectoryObject` records from group member/owner reads. REST response status fields now use `StatusCode`.
+
+- Rename `cloud_terrastodon_credentials` to `cloud_terrastodon_auth` and move authentication selections and credential audiences into `cloud_terrastodon_auth_types`, without compatibility exports. The facade now uses `auth` and `auth-types`; `AzureTenantId` remains in `azure_types`.
+
+- Replace Azure/DevOps service CLI runner paths with explicit-context REST, including policy remediation, storage-backend container inventory, Key Vault metadata, and ACR repository/tag reads. Container Registry token exchanges are isolated; Gitea selects an explicit tea profile.
+
+- Accept account aliases alongside UUIDs in `ct account` commands. Use `ct account logout --all` to retire all registered credential sessions while keeping account registrations and defaults.
 
 - Preserve Azure address prefixes when serializing typed values to JSON, including values read from the singular address-prefix field.
 
@@ -39,6 +71,8 @@
 - Use `teamy-tracing 0.3.0` from crates.io for live log capture, retained diagnostic reports, and shared GUI widgets. Log execution and cache-miss reasons, and suppress repeated SVG stylesheet warnings and routine Figue default-extraction messages in terminal output.
 
 - Preserve original JSON, reflection, CLI-input, credential-store, and terminal-coordination errors beneath operation context instead of replacing their causes with formatted strings. Retain deliberate suppression of sensitive authentication and request details.
+
+- Reject HTML pages at JSON REST response boundaries and add a byte-limited uncached read path for private responses such as profile photos. Keep private response headers and bodies out of execution artifacts.
 
 - Serialize `PathBuf` through a borrowed `Cow<str>` Facet proxy, restoring GUI settings persistence without an extra path-text copy. Reject non-UTF-8 paths with field context. Adopt the coordinated published Core/Reflect rc.8, Facet rc.10, JSON rc.12, Figue rc.8 and Cancellation 0.8.3 releases without Cargo patches; use bounded proxy inspection at CT's reflection sites.
 
@@ -54,14 +88,6 @@
 
 - Handle browser-login cancellation explicitly, validate callback state before accepting errors, and keep idle browser preconnections from delaying the authorization response. Accept localhost callbacks over IPv4 and IPv6, and bound browser acknowledgements before returning and cleaning up failed login attempts.
 
-- Add `ct az storage account list` and `show`, reusing the shared storage-account inventory for listing and a direct ARM request for individual accounts. Both support `--no-cache` and shared output formats.
-
-- Add `ct az storage blob container list` and `show` with typed storage-account/container selection, shared output formats, and `--no-cache`. Container listing reuses the audit inventory; showing a container fetches its properties directly through ARM.
-
-- Add `ct az storage account audit` and include its findings in `ct az audit`. Report storage accounts that enable anonymous blob access while every container is private (including empty accounts), retaining network settings and tags. Surface missing settings and failed inventories as inconclusive, and support `--clean` for refreshing account settings and container pages.
-
-- Replace opaque storage-account properties with the typed `AzureStorageAccountProperties` model and nested service records. Storage audits reuse the normal account inventory and cache instead of maintaining a separate access-settings projection.
-
 - Coordinate independent cache owners with a lazy exclusive filesystem lock retained by the shared `WorkCache` lifetime. Commands waiting for the same root remain cancellable and reuse valid disk results after ownership transfers; executor clones retain concurrent per-entry execution.
 
 - Recover interrupted cache owners by discarding reusable selections while retaining diagnostic artifacts. Publish metadata through same-directory temporary files, and retain recovery markers after failed invalidation or publication. These guarantees cover cooperating processes on local filesystems, not power-loss durability or older binaries that ignore locking.
@@ -74,15 +100,11 @@
 
 - Have application handlers return `CliOutput`; the runner emits it once using the selected format. Keep required final-report emission with the output contract, and use shared text/JSON output in standalone examples.
 
+- Make custom `CliOutput` rendering cancellation-aware and streaming: `CliOutputValue` implementations write to a supplied writer, and `facet_with_text` callbacks receive a writer and cancellation scope.
+
 - Refine Azure/Entra request boundaries: accept resolved Container Registry endpoints, expose tenant-root management-group and inherited-role-definition requests, and replace tag, role-assignment-create, PIM-activation, and name-availability helpers with registered operations. Construct tenant-root scopes directly from explicit tenant IDs, require ordered unique group-batch inputs, normalize Entra request names, and keep routine SDK logging at debug level.
 
 - Wait for asynchronous tag updates before returning, retaining affected-read invalidation and failure artifacts. Use targeted Merge patches when adding tags, and bound polling HTTP exchanges without abandoning required persistence or cleanup.
-
-- Add named Cloud Terrastodon accounts with stable IDs, tenant/service-scoped aliases, explicit defaults, and isolated CLI/browser/workload/PAT/Gitea credential sessions. Entra user accounts can register both CLI and browser mechanisms after verified principal matching, select a preferred source, and override it per request. Source-specific logout preserves other mechanisms; retirement drains required work and invalidates affected cache partitions and dependent results.
-
-- Move authentication selectors from global arguments into authenticated command leaves, sharing `AzureAuthenticationArgs` and `AzureDevOpsAuthenticationArgs` through `auth_cli`. Resolve concrete tenant/account/source metadata before request construction and use one invocation-owned provider and executor throughout. Local commands have no authentication arguments; Azure DevOps bearer and PAT accounts resolve in distinct tenant and organization namespaces.
-
-- Complete the request-first SDK cutover: pure serializable account/source/tenant fields, domain-prefixed Azure/Entra request and Azure resource-group/storage-account families, and direct `Request { ... }.execute(executor)` calls. Remove trivial fetch factories, runtime fields, reflective cancellation injection, and ambient Azure CLI defaults. This is a breaking API change without compatibility exports.
 
 - Move live Cargo checks into a separate runtime verification registry. `ct test list` inspects metadata; `ct test run <pattern>` requires explicit service inputs and effect admission. Optional `--clean` uses the normal request invalidation contract; cached runs warn without adding a replay mode.
 
@@ -136,7 +158,7 @@
 
 - Keep local Command execution and HCL/file workflows cancellation-only. Explicit artifact and cached Command APIs use the caller-owned executor; shared reads return one decoded `Arc` per canonical owner/type. Preserve cancellation, retries, caller validation, and managed failure artifacts; reject bad disk values without clearing unrelated pages. Remove implicit Azure CLI login retries.
 
-- Replace remaining Azure/DevOps service CLI operations with explicit-context REST, including Key Vault metadata and ACR repository/tag reads with isolated token exchanges. Pass cancellation scopes through local Terraform, menu, and GUI workflows; retain executors for managed requests. Local configuration inspection supports fresh scope-only reads and explicit cached requests. Gitea selects an explicit tea profile and executes independently until external credential generations can partition reuse.
+- Keep local configuration and Gitea workflows explicit: use cancellation scopes for Terraform, menu, and GUI work; allow fresh local configuration inspection or explicit caching; and select a tea profile for Gitea until credential generations can partition cache reuse.
 
 - Add admitted, owned executor work without a `Sync` requirement or result sharing. Optional execution artifacts retain canonical owner/type checks with zero reuse; reusable parents reject uncached child work even when callers catch the error.
 
@@ -150,13 +172,11 @@
 
 - Bind registry invocation and UI jobs to the explicit executor. `register_executable_request!` supports data-only requests and shared outputs; offline discovery does not acquire credentials or execute requests. Each UI job retains independent cancellation. Remove the legacy `IntoFuture` registration callback and reflective cancellation injection.
 
-- Rename `cloud_terrastodon_credentials` to `cloud_terrastodon_auth` and move authentication selections and credential audiences into `cloud_terrastodon_auth_types`, without compatibility exports. The facade now uses `auth` and `auth-types`; `AzureTenantId` remains in `azure_types`.
-
-- Resolve a concrete tenant for Azure CLI bearer authentication, including Azure DevOps. PAT authentication remains tenant-independent. Establish persistent, account-owned CLI logins with `ct account login <account-id>` after registering the source and tenant. Token acquisition no longer relies on ambient CLI login state or starts an implicit login. Policy remediation and storage-backend container inventory use typed ARM REST requests; the CLI service runner and allowlist are removed. See [authentication](docs/authentication.md).
-
 - Expose resource-provider metadata through `azure_types` and `azure::AzureResourceProviderListRequest`, including tenant-scoped pagination, cached pages, and invalidation. The maintenance tool consumes this SDK surface; provider-relative names preserve unknown types and service spelling for enum generation.
 
 - Move Terraform formatting to `hcl::AsFormattedHclString`, keeping pure HCL conversions in `hcl_types`. Extract resource-type maintenance into the unpublished `tools/resource-types-cli` with offline generation/checking and explicit tenant ID-or-alias/source refresh. The types crates no longer depend transitively on command execution.
+
+- Add the unpublished `iconography-cli` for validating and generating the categorized Azure and Azure DevOps SVG asset crates, refreshing selected public sources, and producing a local HTML gallery.
 
 - Default `App` to an anonymous provider and support `App::authentication_provider` injection. Remove the app's `auth` feature and `AppContext::auth`; service commands own their explicit credential selection independently of Cargo feature unification.
 
@@ -180,10 +200,7 @@
 
 - Stream CLI JSON directly through the supplied cancellation-aware writer, preserving scoped deferral and cancellation reasons without buffering a complete document. Saved group plans check writes before caller-owned buffering and explicitly flush before publication.
 
-- Add explicit `AuthSource::None` / `--auth-source none` to reject authenticated leaf operations before account/default lookup. Local operations use the anonymous provider without authentication flags or runtime credential contexts.
 - Pass cancellation scopes through output rendering and emission, support incremental custom output writers, and check cancellation between bounded writes; text rendering loops also observe cancellation. Use Teamy Cancellation's I/O helpers and typed cancellation-error extensions.
-
-- Add the multi-file `group-management` consumer example with tenant-qualified `groupId` input, local validation, explicit exact/additive relationship policies, workload-identity preflight, and read-only saved plans with completeness blockers.
 
 - Require caller-owned execution scopes: managed SDK/REST operations receive an executor; local helpers and plain Command execution receive `CancellationScope` directly.
 - Adopt Teamy Cancellation's execution-scope API with linked `cancellable_scope` and `with_async_scope` execution and bounded `deferred`/`with_deferral` protection; deeply nested mutation, cache-invalidation, and copy-journal completion retain their owning scopes while independent work remains cancellable.
