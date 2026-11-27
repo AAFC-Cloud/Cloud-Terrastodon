@@ -19,6 +19,10 @@ pub struct AzureEntraGroupListArgs {
     /// Only list groups containing this principal, including nested group membership.
     #[facet(figue::named)]
     pub for_member: Option<EntraPrincipalId>,
+
+    /// Refresh the cached group list.
+    #[facet(figue::named, default)]
+    pub no_cache: bool,
 }
 
 impl AzureEntraGroupListArgs {
@@ -33,6 +37,7 @@ impl AzureEntraGroupListArgs {
                         authentication,
                     }
                     .execute(executor)
+                    .with_invalidation(self.no_cache)
                     .await?,
                 )
             }
@@ -40,6 +45,7 @@ impl AzureEntraGroupListArgs {
                 info!(tenant_id = %authentication.tenant_id, "Fetching Entra groups");
                 EntraGroupListRequest { authentication }
                     .execute(executor)
+                    .with_invalidation(self.no_cache)
                     .await?
             }
         };

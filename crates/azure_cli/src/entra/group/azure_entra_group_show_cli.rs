@@ -40,6 +40,10 @@ pub struct AzureEntraGroupShowArgs {
     /// Group identifier(s) (UUID). Use '-' to read IDs from stdin (one per line).
     #[facet(figue::named)]
     pub group_id: Vec<String>,
+
+    /// Fetch fresh group details, memberships, ownership, and Azure role assignments.
+    #[facet(figue::named, default)]
+    pub no_cache: bool,
 }
 
 #[derive(Debug, Facet)]
@@ -90,6 +94,7 @@ impl AzureEntraGroupShowArgs {
             authentication,
         }
         .execute(executor)
+        .with_invalidation(self.no_cache)
         .await?;
 
         // Map by id for fast lookup
@@ -125,6 +130,7 @@ impl AzureEntraGroupShowArgs {
                         authentication,
                     }
                     .execute(&child)
+                    .with_invalidation(self.no_cache)
                     .await
                     .map(|members| AzureEntraGroupShowLookupResult::Members { group_id, members }),
                     AzureEntraGroupShowLookup::Owners(group_id) => EntraGroupOwnerListRequest {
@@ -132,11 +138,13 @@ impl AzureEntraGroupShowArgs {
                         authentication,
                     }
                     .execute(&child)
+                    .with_invalidation(self.no_cache)
                     .await
                     .map(|owners| AzureEntraGroupShowLookupResult::Owners { group_id, owners }),
                     AzureEntraGroupShowLookup::RoleAssignments => {
                         AzureRoleDefinitionsAndAssignmentsListRequest { authentication }
                             .execute(&child)
+                            .with_invalidation(self.no_cache)
                             .await
                             .map(AzureEntraGroupShowLookupResult::RoleAssignments)
                     }

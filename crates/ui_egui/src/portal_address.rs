@@ -27,7 +27,7 @@ use cloud_terrastodon_azure_cli::audit_cli::AzureAuditArgs;
 use cloud_terrastodon_azure_cli::entra::application_registration::AzureEntraApplicationRegistrationListArgs;
 use cloud_terrastodon_azure_cli::entra::application_registration::AzureEntraApplicationRegistrationShowArgs;
 use cloud_terrastodon_azure_cli::entra::group::AzureEntraGroupListArgs;
-use cloud_terrastodon_azure_cli::entra::group::AzureEntraGroupShowArgs;
+use cloud_terrastodon_azure_cli::entra::group::AzureEntraGroupSearchArgs;
 use cloud_terrastodon_azure_cli::entra::user::AzureEntraUserListArgs;
 use cloud_terrastodon_azure_cli::entra::user::AzureEntraUserShowArgs;
 use cloud_terrastodon_azure_cli::resource::AzureResourceShowArgs;
@@ -185,6 +185,7 @@ impl PortalAddress {
                 &AzureEntraGroupListArgs {
                     authentication,
                     for_member: None,
+                    no_cache: false,
                 },
             )?,
             PortalTabTarget::Page(PortalPage::EntraAppRegistrations) => format_cli_command(
@@ -199,10 +200,11 @@ impl PortalAddress {
                 },
             )?,
             PortalTabTarget::EntraGroup(id) => format_cli_command(
-                "entra group show",
-                &AzureEntraGroupShowArgs {
+                "entra group search",
+                &AzureEntraGroupSearchArgs {
                     authentication,
-                    group_id: vec![id.to_string()],
+                    search_term: id.to_string(),
+                    no_cache: false,
                 },
             )?,
             PortalTabTarget::EntraAppRegistration(id) => format_cli_command(
@@ -1024,7 +1026,7 @@ mod tests {
             (PortalTabTarget::EntraUser(object_id.parse()?), "user show"),
             (
                 PortalTabTarget::EntraGroup(object_id.parse()?),
-                "group show",
+                "group search",
             ),
             (
                 PortalTabTarget::EntraAppRegistration(object_id.parse()?),

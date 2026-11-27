@@ -17,6 +17,10 @@ pub struct AzureEntraGroupMemberListArgs {
 
     #[facet(flatten)]
     pub authentication: AzureAuthenticationArgs,
+
+    /// Refresh the cached member list.
+    #[facet(figue::named, default)]
+    pub no_cache: bool,
 }
 
 impl AzureEntraGroupMemberListArgs {
@@ -28,6 +32,7 @@ impl AzureEntraGroupMemberListArgs {
             authentication,
         }
         .execute(executor)
+        .with_invalidation(self.no_cache)
         .await?;
 
         Ok(CliOutput::facet(members))
