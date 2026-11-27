@@ -51,6 +51,8 @@ use cloud_terrastodon_azure_cli::storage::blob::container::AzureStorageBlobConta
 use cloud_terrastodon_azure_cli::tenant::AzureTenantShowArgs;
 use cloud_terrastodon_azure_devops_cli::AzureDevOpsAuditArgs;
 use cloud_terrastodon_azure_devops_cli::AzureDevOpsEntraPermissionsArgs;
+use cloud_terrastodon_azure_devops_cli::license_entitlement::user::AzureDevOpsLicenseEntitlementUserListArgs;
+use cloud_terrastodon_azure_devops_cli::organization::AzureDevOpsOrganizationShowArgs;
 use cloud_terrastodon_azure_devops_cli::project::list::AzureDevOpsProjectListArgs;
 use cloud_terrastodon_cli_types::CloudTerrastodonAccountArgument;
 use eframe::egui::Align;
@@ -122,6 +124,18 @@ impl PortalAddress {
                 },
             )
             .map(Some),
+            PortalTabTarget::AzureDevOpsOrganization {
+                organization,
+                view: PortalAzureDevOpsOrganizationView::Users,
+            } if organization.organization_name().is_ok() => format_shell_command(
+                "ct az devops license-entitlement user list".to_owned(),
+                &AzureDevOpsLicenseEntitlementUserListArgs {
+                    no_cache: false,
+                    org: organization.as_ref().clone(),
+                    authentication,
+                },
+            )
+            .map(Some),
             PortalTabTarget::AzureDevOpsProject {
                 organization,
                 project,
@@ -142,6 +156,17 @@ impl PortalAddress {
             }
             PortalTabTarget::Page(PortalPage::AzureDevOpsOrganizations) => {
                 return Ok(Some("ct az devops org list".into()));
+            }
+            PortalTabTarget::AzureDevOpsOrganization {
+                organization,
+                view: PortalAzureDevOpsOrganizationView::Overview,
+            } => {
+                return Ok(Some(format_cli_command(
+                    "devops org show",
+                    &AzureDevOpsOrganizationShowArgs {
+                        organization: organization.as_ref().clone(),
+                    },
+                )?));
             }
             PortalTabTarget::AzureTenant(tenant) => {
                 let authentication = authentication
@@ -418,6 +443,15 @@ impl PortalAddress {
                 organization,
                 view: PortalAzureDevOpsOrganizationView::Overview,
             } => return Some(organization.expanded_form()),
+            PortalTabTarget::AzureDevOpsOrganization {
+                organization,
+                view: PortalAzureDevOpsOrganizationView::Users,
+            } if organization.organization_name().is_ok() => {
+                return organization
+                    .api_url("dev.azure.com", "_settings/users", &[])
+                    .ok()
+                    .map(|url| url.to_string());
+            }
             PortalTabTarget::Page(PortalPage::Subscriptions) => {
                 return Some(
                     "https://portal.azure.com/#view/Microsoft_Azure_Billing/SubscriptionsBladeV2"
@@ -858,10 +892,14 @@ impl MyApp {
             .show(ui, &mut self.azure.resource_search, focus_search);
         }
         let (devops_authentication, devops_project_name) = match target {
-            PortalTabTarget::AzureDevOpsOrganization { organization, .. } => (
-                self.ready_azure_devops_authentication_for(organization),
-                None,
-            ),
+            PortalTabTarget::AzureDevOpsOrganization { organization, view }
+                if *view != PortalAzureDevOpsOrganizationView::Overview =>
+            {
+                (
+                    self.ready_azure_devops_authentication_for(organization),
+                    None,
+                )
+            }
             PortalTabTarget::AzureDevOpsProject {
                 organization,
                 project,

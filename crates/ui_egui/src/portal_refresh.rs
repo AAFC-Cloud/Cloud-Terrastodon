@@ -223,6 +223,10 @@ impl MyApp {
                     PortalAzureDevOpsOrganizationView::Projects
                     | PortalAzureDevOpsOrganizationView::Project(_),
             } => self.can_refresh_azure_devops_projects_in(content, organization),
+            PortalTabTarget::AzureDevOpsOrganization {
+                organization,
+                view: PortalAzureDevOpsOrganizationView::Users,
+            } => self.can_refresh_azure_devops_users_in(content, organization),
             PortalTabTarget::AzureDevOpsProject {
                 organization,
                 project,
@@ -393,6 +397,10 @@ impl MyApp {
             } => {
                 self.refresh_azure_devops_projects_for(organization);
             }
+            PortalTabTarget::AzureDevOpsOrganization {
+                organization,
+                view: PortalAzureDevOpsOrganizationView::Users,
+            } => self.load_azure_devops_users(organization, true),
             PortalTabTarget::AzureDevOpsProject {
                 organization,
                 project,

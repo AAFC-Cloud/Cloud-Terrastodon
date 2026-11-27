@@ -1,4 +1,5 @@
 use crate::azure_devops_project_inventory::AzureDevOpsProjectInventory;
+use crate::azure_devops_user_inventory::AzureDevOpsUserInventory;
 use crate::entra_devops_permissions::EntraDevOpsPermissionOrganization;
 use crate::entra_directory::EntraDirectory;
 use crate::entra_group_data::EntraGroupData;
@@ -47,6 +48,7 @@ pub(crate) struct PortalAzureContent {
     pub toggle_intents: HashSet<Id>,
     pub subscriptions: Loadable<Rc<Vec<Arc<Subscription>>>>,
     pub azure_devops_projects: AzureDevOpsProjectInventory,
+    pub azure_devops_users: AzureDevOpsUserInventory,
     pub azure_devops_organization: Option<AzureDevOpsOrganizationUrl>,
     pub devops_pat_accounts: HashMap<AzureDevOpsOrganizationUrl, CloudTerrastodonAccountId>,
     pub devops_organization_generation: u64,
@@ -102,6 +104,7 @@ impl PortalAzureContent {
             || matches!(self.resource_groups, Loadable::Loading { .. })
             || matches!(self.management_groups, Loadable::Loading { .. })
             || self.azure_devops_projects.is_loading()
+            || self.azure_devops_users.is_loading()
             || self.storage_account_browser.is_loading()
             || self.storage_explorer.is_loading()
             || self.entra_directory.is_loading()

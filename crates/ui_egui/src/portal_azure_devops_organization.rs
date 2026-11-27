@@ -1,6 +1,8 @@
 use crate::app::MyApp;
+use crate::azure_devops_organization_users_ui::show_azure_devops_organization_users;
 use crate::icons::DEVOPS_ICON;
 use crate::icons::DEVOPS_PROJECT_ICON;
+use crate::icons::page_icon;
 use crate::portal_azure_devops_organization_view::PortalAzureDevOpsOrganizationView;
 use crate::portal_azure_devops_project::show_azure_devops_project;
 use crate::portal_azure_devops_project_view::PortalAzureDevOpsProjectView;
@@ -28,6 +30,7 @@ pub(crate) fn show_azure_devops_organization(
     use PortalAzureDevOpsOrganizationView::Overview;
     use PortalAzureDevOpsOrganizationView::Project;
     use PortalAzureDevOpsOrganizationView::Projects;
+    use PortalAzureDevOpsOrganizationView::Users;
 
     if let Project(id) = view {
         show_azure_devops_project(
@@ -82,7 +85,15 @@ pub(crate) fn show_azure_devops_organization(
                 expanded,
                 || Projects.target(organization),
             );
-            overview.or(projects)
+            let users = navigation_tile(
+                ui,
+                "Users",
+                page_icon(PortalPage::EntraUsers),
+                view == Users,
+                expanded,
+                || Users.target(organization),
+            );
+            overview.or(projects).or(users)
         })
         .inner;
     match open {
@@ -117,6 +128,9 @@ pub(crate) fn show_azure_devops_organization(
                         ui.end_row();
                     }
                 });
+                app.show_tracked_azure_devops_organization_actions(ui, organization);
+            } else if view == Users {
+                show_azure_devops_organization_users(app, ui, organization);
             } else {
                 azure_devops_projects_ui(app, ui, organization);
             }

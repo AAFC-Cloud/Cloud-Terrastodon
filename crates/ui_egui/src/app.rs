@@ -31,6 +31,7 @@ use eframe::Storage;
 use eframe::egui::Id;
 use eframe::egui::Ui;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::path::PathBuf;
@@ -51,6 +52,7 @@ pub struct MyApp {
     pub executor: CloudTerrastodonExecutor,
     pub(crate) work_cache: GuiWorkCache,
     pub(crate) azure_devops_organization_picker: AzureDevOpsOrganizationPicker,
+    pub(crate) azure_devops_license_updates: HashSet<AzureDevOpsOrganizationUrl>,
     pub(crate) azure: PortalAzureContent,
     // The displayed content is attached while invoking its existing page widgets.
     azure_tab: PortalTabId,
@@ -133,6 +135,7 @@ impl MyApp {
             azure_devops_organization_picker: AzureDevOpsOrganizationPicker::new(
                 azure_devops_organization.as_ref(),
             ),
+            azure_devops_license_updates: HashSet::new(),
             azure: PortalAzureContent {
                 azure_devops_organization,
                 ..PortalAzureContent::new(authentication, 0)
@@ -252,12 +255,23 @@ impl MyApp {
     pub fn navigate_tab(&mut self, target: PortalTabTarget) {
         self.sync_azure_content();
         let previous = self.tabs.active_id();
+        let from_devops_list = matches!(
+            self.tabs.active(),
+            PortalTabTarget::Page(PortalPage::AzureDevOpsOrganizations)
+        );
         if !self.tabs.open(target) {
             return;
         }
         self.sync_azure_content();
         if previous == self.tabs.active_id() {
             self.azure.resource_search.clear();
+        }
+        if from_devops_list
+            && let PortalTabTarget::AzureDevOpsOrganization { organization, .. } =
+                self.tabs.active()
+        {
+            let organization = organization.as_ref().clone();
+            self.seed_azure_devops_organization_account(self.tabs.active_id(), &organization);
         }
         self.record_portal_visit();
         self.retain_open_tab_data();
@@ -275,6 +289,13 @@ impl MyApp {
         let source = self.tabs.active_id();
         let tab = self.tabs.open_background(target.clone());
         self.seed_azure_content(tab, source);
+        if matches!(
+            self.tabs.active(),
+            PortalTabTarget::Page(PortalPage::AzureDevOpsOrganizations)
+        ) && let PortalTabTarget::AzureDevOpsOrganization { organization, .. } = &target
+        {
+            self.seed_azure_devops_organization_account(tab, organization);
+        }
         self.record_portal_visit_to(target);
         tab
     }

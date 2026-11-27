@@ -117,6 +117,10 @@ impl MyApp {
                                     view: PortalAzureDevOpsOrganizationView::Projects,
                                     ..
                                 } => Cow::Borrowed("Projects"),
+                                PortalTabTarget::AzureDevOpsOrganization {
+                                    view: PortalAzureDevOpsOrganizationView::Users,
+                                    ..
+                                } => Cow::Borrowed("Users"),
                                 PortalTabTarget::AzureDevOpsProject { view, .. }
                                     if *view != PortalAzureDevOpsProjectView::Overview =>
                                 {

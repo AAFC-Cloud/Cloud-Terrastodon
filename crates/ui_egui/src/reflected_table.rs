@@ -35,7 +35,6 @@ pub(crate) struct ReflectedTable<'a> {
     result_count: bool,
     status: Option<&'a str>,
     search_hint: &'static str,
-    deemphasized: Option<fn(ReflectedValue<'_>) -> bool>,
 }
 
 impl<'a> ReflectedTable<'a> {
@@ -48,7 +47,6 @@ impl<'a> ReflectedTable<'a> {
             result_count: false,
             status: None,
             search_hint: "Search results",
-            deemphasized: None,
         }
     }
 
@@ -78,12 +76,6 @@ impl<'a> ReflectedTable<'a> {
 
     pub fn with_search_hint(mut self, hint: &'static str) -> Self {
         self.search_hint = hint;
-        self
-    }
-
-    /// Mute matching rows while preserving their hover and navigation behavior.
-    pub fn with_deemphasized_rows(mut self, predicate: fn(ReflectedValue<'_>) -> bool) -> Self {
-        self.deemphasized = Some(predicate);
         self
     }
 
@@ -489,8 +481,6 @@ impl<'a> ReflectedTable<'a> {
                             let index = display_index - headings_before;
                             let (id, value) = row_at(index);
                             let reflected = ReflectedValue::new(value);
-                            let deemphasized =
-                                self.deemphasized.is_some_and(|test| test(reflected));
                             let mut checked = checked_rows.get(&id) == Some(&true);
                             if self.selection_enabled {
                                 background.first_cell(&mut row, |ui| {
@@ -506,9 +496,6 @@ impl<'a> ReflectedTable<'a> {
                             }
                             for (column_index, column) in self.columns.iter().enumerate() {
                                 let mut show_cell = |ui: &mut Ui| {
-                                    if deemphasized {
-                                        ui.multiply_opacity(0.65);
-                                    }
                                     if let Some(icon) = column.icon(ui, reflected) {
                                         let size = if column.secondary_text.is_some() {
                                             24.0

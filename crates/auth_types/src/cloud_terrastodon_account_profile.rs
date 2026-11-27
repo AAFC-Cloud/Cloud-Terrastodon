@@ -1,4 +1,5 @@
 use crate::AuthSource;
+use crate::AzureBearerAuthenticationSelection;
 use crate::CloudTerrastodonAccountAlias;
 use crate::CloudTerrastodonAccountCredential;
 use crate::CloudTerrastodonAccountId;
@@ -8,6 +9,7 @@ use crate::CloudTerrastodonAccountSession;
 use crate::CloudTerrastodonCredentialRegistration;
 use crate::CloudTerrastodonCredentialSource;
 use eyre::Result;
+use eyre::bail;
 use eyre::ensure;
 use facet::Facet;
 use std::collections::HashSet;
@@ -82,6 +84,24 @@ impl CloudTerrastodonAccountProfile {
         };
         self.registration(source)?;
         Ok(source)
+    }
+
+    /// Resolve this profile's Entra selection without acquiring a credential.
+    pub fn azure_bearer_selection(
+        &self,
+        source: AuthSource,
+    ) -> Result<AzureBearerAuthenticationSelection> {
+        let CloudTerrastodonAccountNamespace::Entra { tenant_id } = self.namespace else {
+            bail!("the selected account does not support Entra authentication");
+        };
+        let source = self.select_source(source)?.auth_source().ok_or_else(|| {
+            eyre::eyre!("the selected account does not support Entra authentication")
+        })?;
+        Ok(AzureBearerAuthenticationSelection {
+            account_id: self.id,
+            auth_source: source.try_into()?,
+            tenant_id,
+        })
     }
 
     /// First provisioning establishes identity. Subsequent mechanisms and

@@ -115,6 +115,9 @@ impl PortalTabTarget {
                 PortalAzureDevOpsOrganizationView::Projects => {
                     Cow::Owned(format!("{} · Projects", organization.name()))
                 }
+                PortalAzureDevOpsOrganizationView::Users => {
+                    Cow::Owned(format!("{} · Users", organization.name()))
+                }
                 PortalAzureDevOpsOrganizationView::Project(id) => {
                     Cow::Owned(format!("Project {id}"))
                 }

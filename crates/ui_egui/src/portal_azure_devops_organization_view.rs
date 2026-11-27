@@ -11,6 +11,7 @@ pub enum PortalAzureDevOpsOrganizationView {
     Projects,
     // Persisted history from before projects had their own destination.
     Project(AzureDevOpsProjectId),
+    Users,
 }
 
 impl PortalAzureDevOpsOrganizationView {

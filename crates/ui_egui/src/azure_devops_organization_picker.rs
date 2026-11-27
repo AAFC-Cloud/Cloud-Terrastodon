@@ -1,7 +1,11 @@
+mod tracking;
+
 use crate::app::MyApp;
 use crate::portal_azure_content::PortalAzureContent;
 use crate::portal_page::PortalPage;
+use crate::portal_tab_id::PortalTabId;
 use cloud_terrastodon_auth::CloudTerrastodonAccountCatalogue;
+use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountNamespace;
@@ -11,17 +15,12 @@ use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::TrackedAzureDevOpsOrganization;
-use cloud_terrastodon_azure_devops::TrackedAzureDevOpsOrganizationStore;
 use cloud_terrastodon_command::app_work::Loadable;
-use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
-use eframe::egui::CollapsingHeader;
 use eframe::egui::ComboBox;
 use eframe::egui::Key;
 use eframe::egui::TextEdit;
 use eframe::egui::Ui;
 use std::collections::HashMap;
-use std::time::Instant;
-use teamy_tracing::gui::DiagnosticReportView;
 
 /// Shared catalogue of tracked and previously entered Azure DevOps organizations.
 #[derive(Default)]
@@ -46,11 +45,17 @@ impl AzureDevOpsOrganizationPicker {
         &self,
         organization: &AzureDevOpsOrganizationUrl,
     ) -> Option<AzureTenantId> {
+        self.tracked_organization(organization)?.tenant_id
+    }
+
+    pub(crate) fn tracked_organization(
+        &self,
+        organization: &AzureDevOpsOrganizationUrl,
+    ) -> Option<&TrackedAzureDevOpsOrganization> {
         self.tracked_organizations
             .as_loaded()?
             .iter()
-            .find(|tracked| &tracked.url == organization)?
-            .tenant_id
+            .find(|tracked| &tracked.url == organization)
     }
 
     pub(crate) fn known_organizations<'a>(
@@ -234,66 +239,45 @@ impl AzureDevOpsOrganizationPicker {
 }
 
 impl MyApp {
-    pub(crate) fn reload_tracked_azure_devops_organizations(&mut self) {
-        if self
+    pub(crate) fn seed_azure_devops_organization_account(
+        &mut self,
+        tab: PortalTabId,
+        organization: &AzureDevOpsOrganizationUrl,
+    ) {
+        let selection = self
             .azure_devops_organization_picker
-            .is_loading_tracked_organizations()
-        {
+            .tracked_organizations
+            .as_loaded()
+            .and_then(|_| self.account_picker.catalogue.as_ref().ok())
+            .and_then(|catalogue| {
+                initial_organization_account(
+                    catalogue,
+                    organization,
+                    self.azure_devops_organization_picker
+                        .tracked_tenant(organization),
+                )
+            });
+        let (bearer, pat) = match selection {
+            Some(AzureDevOpsAuthSelection::Bearer(selection)) => (Some(selection), None),
+            Some(AzureDevOpsAuthSelection::PersonalAccessToken { account_id }) => {
+                (None, Some(account_id))
+            }
+            None => (None, None),
+        };
+        let Some(content) = self.azure_content_for_tab_mut(tab) else {
             return;
+        };
+        let previous_bearer = std::mem::replace(&mut content.authentication, bearer);
+        let previous_pat = match pat {
+            Some(pat) => content
+                .devops_pat_accounts
+                .insert(organization.clone(), pat),
+            None => content.devops_pat_accounts.remove(organization),
+        };
+        self.account_picker.set_selection_error(tab, None);
+        if previous_bearer != bearer || previous_pat != pat {
+            self.reset_azure_content_for_tab(tab);
         }
-        let cancellation = self.executor.cancellation().clone();
-        let started_at = Instant::now();
-        let enqueue_result = LoadableWorkBuilder::<MyApp, _>::new()
-            .description("loading tracked Azure DevOps organizations")
-            .setter(|app, data| app.azure_devops_organization_picker.tracked_organizations = data)
-            .work(async |_scope| {
-                TrackedAzureDevOpsOrganizationStore::configured()
-                    .list()
-                    .await
-            })
-            .build()
-            .enqueue(
-                &self.work_tracker.clone(),
-                self.tx.clone(),
-                self,
-                &cancellation,
-            );
-        if let Err(error) = enqueue_result {
-            self.azure_devops_organization_picker.tracked_organizations = Loadable::Failed {
-                error: error.into(),
-                started_at,
-                finished_at: Instant::now(),
-            };
-        }
-    }
-
-    /// Start loading on demand and return whether the local registry is available.
-    pub(crate) fn show_tracked_azure_devops_organizations_status(&mut self, ui: &mut Ui) -> bool {
-        if matches!(
-            self.azure_devops_organization_picker.tracked_organizations,
-            Loadable::NotLoaded
-        ) {
-            self.reload_tracked_azure_devops_organizations();
-        }
-        match &self.azure_devops_organization_picker.tracked_organizations {
-            Loadable::Loading { .. } => {
-                ui.horizontal(|ui| {
-                    ui.spinner();
-                    ui.label("Loading tracked organizations…");
-                });
-            }
-            Loadable::Failed { error, .. } => {
-                ui.label("Could not load tracked organizations.");
-                CollapsingHeader::new("Error details")
-                    .id_salt("tracked_azure_devops_organizations")
-                    .show(ui, |ui| {
-                        DiagnosticReportView::new(error).show(ui);
-                    });
-            }
-            Loadable::Loaded { .. } => return true,
-            Loadable::NotLoaded => {}
-        }
-        false
     }
 
     /// Choose the audit scope independently of the credentials used in this view.
@@ -387,11 +371,116 @@ impl MyApp {
     }
 }
 
+fn initial_organization_account(
+    catalogue: &CloudTerrastodonAccountCatalogue,
+    organization: &AzureDevOpsOrganizationUrl,
+    tenant_id: Option<AzureTenantId>,
+) -> Option<AzureDevOpsAuthSelection> {
+    if let Some(tenant_id) = tenant_id {
+        let profile = catalogue
+            .resolve(
+                None,
+                Some(&CloudTerrastodonAccountNamespace::Entra { tenant_id }),
+            )
+            .ok()?;
+        return profile
+            .azure_bearer_selection(AuthSource::Auto)
+            .ok()
+            .map(AzureDevOpsAuthSelection::Bearer);
+    }
+    let profile = catalogue
+        .resolve(
+            None,
+            Some(&CloudTerrastodonAccountNamespace::AzureDevOps {
+                organization: organization.clone(),
+            }),
+        )
+        .ok()?;
+    (profile.select_source(AuthSource::Auto).ok()?
+        == CloudTerrastodonCredentialSource::PersonalAccessToken)
+        .then_some(AzureDevOpsAuthSelection::PersonalAccessToken {
+            account_id: profile.id,
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_auth::CloudTerrastodonAccountDefault;
+    use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+    use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
     use cloud_terrastodon_auth_types::CloudTerrastodonAccountCredential;
     use eyre::Result;
+    use std::time::Instant;
+
+    #[test]
+    fn organization_uses_the_default_for_its_saved_tenant() -> Result<()> {
+        let organization: AzureDevOpsOrganizationUrl = "test-organization".parse()?;
+        let tenant_id: AzureTenantId = "00000000-0000-0000-0000-000000000010".parse()?;
+        let other_tenant: AzureTenantId = "00000000-0000-0000-0000-000000000020".parse()?;
+        let tenant_account = CloudTerrastodonAccountProfile::new(
+            "00000000-0000-0000-0000-000000000001".parse()?,
+            "tenant-account".parse()?,
+            CloudTerrastodonAccountCredential::AzureCli { tenant_id },
+        );
+        let other_account = CloudTerrastodonAccountProfile::new(
+            "00000000-0000-0000-0000-000000000002".parse()?,
+            "other-tenant-account".parse()?,
+            CloudTerrastodonAccountCredential::AzureCli {
+                tenant_id: other_tenant,
+            },
+        );
+        let pat_account = CloudTerrastodonAccountProfile::new(
+            "00000000-0000-0000-0000-000000000003".parse()?,
+            "org-pat".parse()?,
+            CloudTerrastodonAccountCredential::AzureDevOpsPersonalAccessToken {
+                organization: organization.clone(),
+            },
+        );
+        let mut catalogue = CloudTerrastodonAccountCatalogue {
+            accounts: vec![
+                other_account.clone(),
+                pat_account.clone(),
+                tenant_account.clone(),
+            ],
+            defaults: vec![
+                CloudTerrastodonAccountDefault {
+                    namespace: other_account.namespace,
+                    account_id: other_account.id,
+                },
+                CloudTerrastodonAccountDefault {
+                    namespace: pat_account.namespace,
+                    account_id: pat_account.id,
+                },
+            ],
+            ..Default::default()
+        };
+        assert_eq!(
+            initial_organization_account(&catalogue, &organization, Some(tenant_id)),
+            None,
+        );
+        catalogue.defaults.push(CloudTerrastodonAccountDefault {
+            namespace: tenant_account.namespace,
+            account_id: tenant_account.id,
+        });
+        assert_eq!(
+            initial_organization_account(&catalogue, &organization, Some(tenant_id)),
+            Some(AzureDevOpsAuthSelection::Bearer(
+                AzureBearerAuthenticationSelection {
+                    account_id: tenant_account.id,
+                    tenant_id,
+                    auth_source: AzureBearerAuthSource::AzureCli,
+                }
+            )),
+        );
+        assert_eq!(
+            initial_organization_account(&catalogue, &organization, None),
+            Some(AzureDevOpsAuthSelection::PersonalAccessToken {
+                account_id: pat_account.id,
+            }),
+        );
+        Ok(())
+    }
 
     #[test]
     fn organizations_merge_registered_and_entered_scopes() -> Result<()> {

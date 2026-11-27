@@ -240,7 +240,6 @@ pub(crate) fn show_account_in_tab_header(target: &PortalTabTarget) -> bool {
                         | PortalPage::ContainerRegistries
                         | PortalPage::KeyVaults
                         | PortalPage::Tags
-                        | PortalPage::AzureDevOpsOrganizations
                         | PortalPage::StartingPoints
                         | PortalPage::SelectedItems
                         | PortalPage::History

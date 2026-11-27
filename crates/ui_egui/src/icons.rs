@@ -98,6 +98,10 @@ pub(crate) fn portal_target_icon_in(
                 | PortalAzureDevOpsOrganizationView::Project(_),
             ..
         } => DEVOPS_PROJECT_ICON,
+        PortalTabTarget::AzureDevOpsOrganization {
+            view: PortalAzureDevOpsOrganizationView::Users,
+            ..
+        } => page_icon(PortalPage::EntraUsers),
         PortalTabTarget::EntraGroupSection { section, .. } => section.icon(),
         PortalTabTarget::EntraUserSection { section, .. } => section.icon(),
         target => page_icon(target.page()),
