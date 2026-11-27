@@ -198,6 +198,18 @@ path = "./crates/azure_devops_cli"
 version = "0.38.0"                   # CT_VERSION
 path = "./crates/azure_devops_types"
 
+[workspace.dependencies.cloud_terrastodon_bmc_helix]
+version = "0.38.0" # CT_VERSION
+path = "./crates/bmc_helix"
+
+[workspace.dependencies.cloud_terrastodon_bmc_helix_cli]
+version = "0.38.0" # CT_VERSION
+path = "./crates/bmc_helix_cli"
+
+[workspace.dependencies.cloud_terrastodon_bmc_helix_types]
+version = "0.38.0" # CT_VERSION
+path = "./crates/bmc_helix_types"
+
 [workspace.dependencies.cloud_terrastodon_gitea]
 version = "0.38.0"             # CT_VERSION
 path = "./crates/gitea"
@@ -318,6 +330,9 @@ cloud_terrastodon_azure_resource_types = { workspace = true, optional = true }
 cloud_terrastodon_azure_devops = { workspace = true, optional = true }
 cloud_terrastodon_azure_devops_cli = { workspace = true, optional = true }
 cloud_terrastodon_azure_devops_types = { workspace = true, optional = true }
+cloud_terrastodon_bmc_helix = { workspace = true, optional = true }
+cloud_terrastodon_bmc_helix_cli = { workspace = true, optional = true }
+cloud_terrastodon_bmc_helix_types = { workspace = true, optional = true }
 cloud_terrastodon_gitea = { workspace = true, optional = true }
 cloud_terrastodon_hcl = { workspace = true, optional = true }
 cloud_terrastodon_hcl_types = { workspace = true, optional = true }
@@ -379,6 +394,9 @@ azure-resource-types = ["dep:cloud_terrastodon_azure_resource_types"]
 azure-devops = ["dep:cloud_terrastodon_azure_devops"]
 azure-devops-cli = ["dep:cloud_terrastodon_azure_devops_cli"]
 azure-devops-types = ["dep:cloud_terrastodon_azure_devops_types"]
+bmc-helix = ["dep:cloud_terrastodon_bmc_helix"]
+bmc-helix-cli = ["dep:cloud_terrastodon_bmc_helix_cli"]
+bmc-helix-types = ["dep:cloud_terrastodon_bmc_helix_types"]
 gitea = ["dep:cloud_terrastodon_gitea"]
 hcl = ["dep:cloud_terrastodon_hcl"]
 hcl-types = ["dep:cloud_terrastodon_hcl_types"]
@@ -410,6 +428,9 @@ full = [
     "azure-devops",
     "azure-devops-cli",
     "azure-devops-types",
+    "bmc-helix",
+    "bmc-helix-cli",
+    "bmc-helix-types",
     "gitea",
     "entrypoint",
     "hcl",

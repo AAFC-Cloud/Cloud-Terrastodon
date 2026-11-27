@@ -6,6 +6,8 @@ use crate::CloudTerrastodonCredentialSource;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraApplicationClientId;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerUrl;
+use cloud_terrastodon_bmc_helix_types::BmcHelixUsername;
 use facet::Facet;
 
 /// Non-secret acquisition configuration of one account's credential mechanism.
@@ -32,6 +34,12 @@ pub enum CloudTerrastodonAccountCredential {
         login: String,
         configuration: CloudTerrastodonCredentialFile,
     },
+    BmcHelix {
+        /// Original alias namespace for a legacy registration. New accounts
+        /// leave this empty and acquire a separate session on each server.
+        server: Option<BmcHelixServerUrl>,
+        username: BmcHelixUsername,
+    },
 }
 impl CloudTerrastodonAccountCredential {
     pub const fn source(&self) -> CloudTerrastodonCredentialSource {
@@ -43,6 +51,7 @@ impl CloudTerrastodonAccountCredential {
                 CloudTerrastodonCredentialSource::PersonalAccessToken
             }
             Self::Gitea { .. } => CloudTerrastodonCredentialSource::Gitea,
+            Self::BmcHelix { .. } => CloudTerrastodonCredentialSource::BmcHelix,
         }
     }
     pub fn namespace(&self) -> CloudTerrastodonAccountNamespace {
@@ -60,6 +69,9 @@ impl CloudTerrastodonAccountCredential {
             Self::Gitea { instance, .. } => CloudTerrastodonAccountNamespace::Gitea {
                 instance: instance.clone(),
             },
+            Self::BmcHelix { server, .. } => CloudTerrastodonAccountNamespace::BmcHelix {
+                server: server.clone(),
+            },
         }
     }
     pub const fn auth_source(&self) -> Option<AuthSource> {
@@ -68,7 +80,7 @@ impl CloudTerrastodonAccountCredential {
             Self::Browser { .. } => Some(AuthSource::Browser),
             Self::WorkloadIdentity { .. } => Some(AuthSource::WorkloadIdentity),
             Self::AzureDevOpsPersonalAccessToken { .. } => Some(AuthSource::PersonalAccessToken),
-            Self::Gitea { .. } => None,
+            Self::Gitea { .. } | Self::BmcHelix { .. } => None,
         }
     }
 }

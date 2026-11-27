@@ -42,7 +42,9 @@ impl PortalHistoryEntry {
                     | PortalPage::PimEntraRoles
                     | PortalPage::PimAzureResources
             ),
-            PortalTabTarget::LocalPath(_) | PortalTabTarget::AzureTenant(_) => false,
+            PortalTabTarget::LocalPath(_)
+            | PortalTabTarget::AzureTenant(_)
+            | PortalTabTarget::HelixServer { .. } => false,
             _ => true,
         }
     }

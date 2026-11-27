@@ -17,5 +17,6 @@ mod account_logout_cli;
 mod account_remove_cli;
 mod account_rename_cli;
 mod account_show_cli;
+mod bmc_helix_password_prompt;
 pub use account_cli::AccountArgs;
 mod account_import_legacy_cli;

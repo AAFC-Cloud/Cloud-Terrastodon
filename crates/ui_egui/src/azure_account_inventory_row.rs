@@ -4,6 +4,7 @@ use cloud_terrastodon_auth_types::CloudTerrastodonAccountAlias;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountNamespace;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountProfile;
+use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
 use facet::Facet;
 
 /// Searchable account registration metadata and the identity used to open its details.
@@ -19,15 +20,20 @@ pub(crate) struct AzureAccountInventoryRow {
 
 impl AzureAccountInventoryRow {
     pub fn new(account: &CloudTerrastodonAccountProfile, is_default: bool) -> Self {
+        let helix = account.preferred_source == CloudTerrastodonCredentialSource::BmcHelix;
         Self {
             id: account.id,
             alias: account.alias.clone(),
             scope: AzureAccountDetails::namespace_label(&account.namespace),
             preferred_source: source_label(account.preferred_source),
-            session: account
-                .registration(account.preferred_source)
-                .ok()
-                .map(|registration| AzureAccountDetails::session_label(registration.session)),
+            session: if helix {
+                None
+            } else {
+                account
+                    .registration(account.preferred_source)
+                    .ok()
+                    .map(|registration| AzureAccountDetails::session_label(registration.session))
+            },
             service_default: matches!(
                 account.namespace,
                 CloudTerrastodonAccountNamespace::AzureDevOps { .. }

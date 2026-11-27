@@ -3,6 +3,7 @@ use crate::icons::page_icon;
 use crate::icons::portal_target_icon;
 use crate::portal_azure_devops_organization_view::PortalAzureDevOpsOrganizationView;
 use crate::portal_azure_devops_project_view::PortalAzureDevOpsProjectView;
+use crate::portal_helix_server_view::PortalHelixServerView;
 use crate::portal_page::PortalPage;
 use crate::portal_tab_open::PortalTabOpen;
 use crate::portal_tab_target::PortalTabTarget;
@@ -121,6 +122,14 @@ impl MyApp {
                                     view: PortalAzureDevOpsOrganizationView::Users,
                                     ..
                                 } => Cow::Borrowed("Users"),
+                                PortalTabTarget::HelixServer {
+                                    view: PortalHelixServerView::WorkOrders,
+                                    ..
+                                } => Cow::Borrowed("Work orders"),
+                                PortalTabTarget::HelixServer {
+                                    view: PortalHelixServerView::Tickets,
+                                    ..
+                                } => Cow::Borrowed("Tickets"),
                                 PortalTabTarget::AzureDevOpsProject { view, .. }
                                     if *view != PortalAzureDevOpsProjectView::Overview =>
                                 {

@@ -18,6 +18,7 @@ use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
 use cloud_terrastodon_auth_types::ContainerRegistryBearerChallenge;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerId;
 use cloud_terrastodon_cache::ArtifactEntry;
 use cloud_terrastodon_cache::ArtifactRetention;
 use cloud_terrastodon_cache::AuthPartition;
@@ -81,6 +82,21 @@ impl CloudTerrastodonExecutor {
         );
         self.authentication
             .retire_account(account_id, source, &self.cache, &self.cancellation)
+            .await
+    }
+
+    /// Stop new work for one Helix server and drain its admitted requests.
+    pub async fn retire_bmc_helix_session(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+        server_id: BmcHelixServerId,
+    ) -> Result<()> {
+        ensure!(
+            matches!(self.mode, ExecutionMode::Normal(_)),
+            "credential infrastructure cannot retire Helix sessions"
+        );
+        self.authentication
+            .retire_bmc_helix_session(account_id, server_id, &self.cache, &self.cancellation)
             .await
     }
 
@@ -295,6 +311,21 @@ impl CloudTerrastodonExecutor {
         target: &Url,
     ) -> Result<()> {
         self.authentication.validate_target(selection, target)
+    }
+
+    /// Borrow the authorization for a validated Helix request from the admitted provider.
+    pub fn bmc_helix_authorization(
+        &self,
+        selection: &AuthenticationSelection,
+        target: &Url,
+    ) -> Result<Authorization> {
+        ensure!(
+            matches!(self.mode, ExecutionMode::Normal(_)),
+            "credential acquisition cannot recursively request authorization"
+        );
+        self.validate_authentication_target(selection, target)?;
+        self.authentication
+            .bmc_helix_authorization(selection, target)
     }
 
     /// Retain this request's admitted credential session through all completion

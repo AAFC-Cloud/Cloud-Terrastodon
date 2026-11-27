@@ -59,6 +59,7 @@ use crate::cli::source::SourceArgs;
 use crate::cli::terraform::TerraformArgs;
 use crate::cli::write_all_imports::WriteAllImportsArgs;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_bmc_helix_cli::BmcHelixArgs;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
@@ -113,6 +114,8 @@ pub enum CloudTerrastodonCommand {
     /// Perform Gitea-specific operations via the `tea` CLI.
     #[facet(figue::alias = "gitea")]
     Tea(GiteaArgs),
+    /// Manage BMC Helix servers and browse tickets and work orders.
+    Helix(BmcHelixArgs),
     /// Decode or inspect JWTs.
     Jwt(JwtArgs),
     /// Extract UUIDs from text input (use '-' to read from stdin)
@@ -192,6 +195,9 @@ impl CloudTerrastodonCommand {
                 return Box::pin(args.invoke(executor)).await;
             }
             CloudTerrastodonCommand::Tea(args) => {
+                return Box::pin(args.invoke(executor)).await;
+            }
+            CloudTerrastodonCommand::Helix(args) => {
                 return Box::pin(args.invoke(executor)).await;
             }
             CloudTerrastodonCommand::Jwt(args) => Box::pin(args.invoke(cancellation)).await,

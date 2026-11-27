@@ -24,7 +24,7 @@ then choose a different account in that view. New tabs start with their opener's
 selection and can change independently.
 
 **Manage accounts** opens **About → Accounts**. The table lists every registration,
-including Azure DevOps PAT and Gitea accounts. **Add account** registers a
+including Azure DevOps PAT, Gitea, and Helix accounts. **Add account** registers a
 credential mechanism. Select an account in the tab to sign in, add or change its
 preferred source, import a legacy session, rename it, sign out, or remove it. Manage
 Azure DevOps and Gitea defaults in their account details. Open **DevOps
@@ -46,7 +46,8 @@ Use `ct account rename <account> <new-name>` to change an alias from the CLI.
 The account's ID, credentials, and defaults remain associated with it.
 To force device-code sign-in, use
 `ct account login <account> --source azure-cli --device-code`. Add
-`--reauthenticate` to replace an existing Entra session.
+`--reauthenticate` to replace an existing Entra session. Replacing a Helix
+session uses `ct account login <account> --server <server> --reauthenticate`.
 
 Open **About → Azure tenants** to browse tracked tenant IDs, their aliases, and
 their default accounts. Open a tenant to set it as the **Default tenant** and

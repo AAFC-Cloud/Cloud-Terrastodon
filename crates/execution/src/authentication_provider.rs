@@ -13,6 +13,7 @@ use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
 use cloud_terrastodon_auth_types::ContainerRegistryBearerChallenge;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerId;
 use cloud_terrastodon_cache::AuthPartition;
 use cloud_terrastodon_cache::WorkCache;
 use eyre::Result;
@@ -31,7 +32,7 @@ use url::Url;
 ///
 /// Applications may implement and inject this trait, but its selections,
 /// audiences, and the built-in account catalogue currently describe the supported
-/// Azure/Entra, Azure DevOps, and Gitea services. This is not an open service
+/// Azure/Entra, Azure DevOps, Gitea, and BMC Helix services. This is not an open service
 /// registration API; adding another account service requires extending those
 /// contracts, not disguising its credentials as an existing selection.
 pub trait AuthenticationProvider: Send + Sync {
@@ -46,6 +47,19 @@ pub trait AuthenticationProvider: Send + Sync {
     ) -> ExecutionFuture<'a, ()> {
         Box::pin(async {
             eyre::bail!("this authentication provider cannot retire accounts");
+        })
+    }
+
+    /// Retire one server session while leaving the Helix account's other sessions open.
+    fn retire_bmc_helix_session<'a>(
+        &'a self,
+        _account_id: CloudTerrastodonAccountId,
+        _server_id: BmcHelixServerId,
+        _cache: &'a WorkCache,
+        _cancellation: &'a CancellationScope,
+    ) -> ExecutionFuture<'a, ()> {
+        Box::pin(async {
+            eyre::bail!("this authentication provider cannot retire Helix sessions");
         })
     }
 
@@ -98,6 +112,10 @@ pub trait AuthenticationProvider: Send + Sync {
     /// before cached results or credentials are used. Pure Entra accounts are
     /// tenant-scoped; providers owning service credentials enforce their instance.
     fn validate_target(&self, selection: &AuthenticationSelection, _target: &Url) -> Result<()> {
+        eyre::ensure!(
+            selection.bmc_helix_session().is_none(),
+            "this authentication provider cannot validate Helix request destinations"
+        );
         self.admit(selection)?;
         Ok(())
     }
@@ -142,6 +160,15 @@ pub trait AuthenticationProvider: Send + Sync {
         resource: AzureCredentialResource,
         executor: &'a CloudTerrastodonExecutor,
     ) -> ExecutionFuture<'a, Authorization>;
+
+    /// Return the admitted authorization for an exact Helix request destination.
+    fn bmc_helix_authorization(
+        &self,
+        _selection: &AuthenticationSelection,
+        _target: &Url,
+    ) -> Result<Authorization> {
+        eyre::bail!("this authentication provider cannot authorize Helix requests");
+    }
 
     /// Exchange a validated registry challenge using this provider's admitted
     /// bearer identity. Credential forms and responses never enter work artifacts.

@@ -1,6 +1,7 @@
 use crate::AccountSignInPrompt;
 use crate::AuthContext;
 use crate::AzureCliSessions;
+use crate::BmcHelixAccountSession;
 use crate::BrowserSession;
 use crate::CloudTerrastodonAccountCatalogue;
 use crate::CloudTerrastodonAccountDefault;
@@ -18,6 +19,7 @@ use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
+use cloud_terrastodon_auth_types::BmcHelixAuthorization;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountAlias;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountArgument;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountCredential;
@@ -30,6 +32,8 @@ use cloud_terrastodon_auth_types::CloudTerrastodonCredentialRegistration;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerId;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerUrl;
 use cloud_terrastodon_cache::ArtifactRetention;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
@@ -79,10 +83,11 @@ impl CloudTerrastodonAccountStore {
             }
             Err(error) => return Err(error).wrap_err("reading the account catalogue"),
         };
-        let catalogue: CloudTerrastodonAccountCatalogue =
+        let mut catalogue: CloudTerrastodonAccountCatalogue =
             facet_json::from_slice(&content).wrap_err(
                 "decoding the account catalogue; pre-cutover single-credential records require explicit migration or new verified registrations; existing account IDs and credential files have not been changed",
             )?;
+        catalogue.migrate_bmc_helix_sessions();
         catalogue.validate()?;
         Ok(catalogue)
     }
@@ -186,6 +191,10 @@ impl CloudTerrastodonAccountStore {
         let _lease = self.lock(cancellation).await?;
         let mut catalogue = self.load()?;
         let namespace = catalogue.by_id(account_id)?.namespace.clone();
+        ensure!(
+            !matches!(namespace, CloudTerrastodonAccountNamespace::BmcHelix { .. }),
+            "specify a server when setting a Helix account default"
+        );
         catalogue
             .defaults
             .retain(|value| value.namespace != namespace);
@@ -203,11 +212,59 @@ impl CloudTerrastodonAccountStore {
     ) -> Result<()> {
         let _lease = self.lock(cancellation).await?;
         let mut catalogue = self.load()?;
-        catalogue.by_id(account_id)?;
+        ensure!(
+            !matches!(
+                catalogue.by_id(account_id)?.namespace,
+                CloudTerrastodonAccountNamespace::BmcHelix { .. }
+            ),
+            "specify a server when clearing a Helix account default"
+        );
         catalogue
             .defaults
             .retain(|value| value.account_id != account_id);
         cancellation.with_deferral("clearing an account default", |_| self.save(&catalogue))
+    }
+
+    pub async fn set_bmc_helix_default(
+        &self,
+        server: &BmcHelixServerUrl,
+        account_id: CloudTerrastodonAccountId,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let _lease = self.lock(cancellation).await?;
+        let mut catalogue = self.load()?;
+        catalogue.bmc_helix_account(account_id)?;
+        let namespace = CloudTerrastodonAccountNamespace::BmcHelix {
+            server: Some(server.clone()),
+        };
+        catalogue
+            .defaults
+            .retain(|value| value.namespace != namespace);
+        catalogue.defaults.push(CloudTerrastodonAccountDefault {
+            namespace,
+            account_id,
+        });
+        cancellation.with_deferral("updating a Helix server's account default", |_| {
+            self.save(&catalogue)
+        })
+    }
+
+    pub async fn clear_bmc_helix_default(
+        &self,
+        server: &BmcHelixServerUrl,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let _lease = self.lock(cancellation).await?;
+        let mut catalogue = self.load()?;
+        let namespace = CloudTerrastodonAccountNamespace::BmcHelix {
+            server: Some(server.clone()),
+        };
+        catalogue
+            .defaults
+            .retain(|value| value.namespace != namespace);
+        cancellation.with_deferral("clearing a Helix server's account default", |_| {
+            self.save(&catalogue)
+        })
     }
 
     fn credential_store(
@@ -236,11 +293,7 @@ impl CloudTerrastodonAccountStore {
         cancellation: &CancellationScope,
     ) -> Result<()> {
         let store = self.credential_store(profile, source, generation);
-        Self::prepare_directory(&store.directory)?;
-        std::fs::write(
-            store.directory.join("retired"),
-            b"explicit account retirement",
-        )?;
+        Self::mark_credential_retired(&store)?;
         match &profile.registration(source)?.credential {
             CloudTerrastodonAccountCredential::AzureCli { .. } => {
                 AzureCliSessionStore::at(store.directory.join("azure-cli"))
@@ -250,6 +303,41 @@ impl CloudTerrastodonAccountStore {
             CloudTerrastodonAccountCredential::WorkloadIdentity { .. } => Ok(()),
             _ => store.delete(),
         }
+    }
+
+    fn mark_credential_retired(store: &CloudTerrastodonAccountSecretStore) -> Result<()> {
+        Self::prepare_directory(&store.directory)?;
+        std::fs::write(
+            store.directory.join("retired"),
+            b"explicit account retirement",
+        )
+        .wrap_err("marking the account credential retired")
+    }
+
+    async fn cleanup_bmc_helix_session(
+        &self,
+        profile: &CloudTerrastodonAccountProfile,
+        server: &BmcHelixServerUrl,
+        generation: Uuid,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let store = self.credential_store(
+            profile,
+            CloudTerrastodonCredentialSource::BmcHelix,
+            generation,
+        );
+        Self::mark_credential_retired(&store)?;
+        let revocation = match store.read_if_present() {
+            Ok(Some(token)) => crate::bmc_helix_session::logout(server, &token, cancellation).await,
+            Ok(None) => Ok(()),
+            Err(error) => Err(error),
+        };
+        if let Err(error) = revocation {
+            // The catalogue has retired this session. Clear the local token
+            // even when the server is unavailable.
+            tracing::warn!(%error, "Could not revoke the Helix token on the server");
+        }
+        store.delete()
     }
 
     /// Attach another mechanism without changing the stable account identity.
@@ -382,6 +470,102 @@ impl CloudTerrastodonAccountStore {
         .await
     }
 
+    /// Exchange a password for a server-bound [AR System JWT](https://docs.helixops.ai/bin/Service-Management/Innovation-Suite/AR-System/ars213/Developing-an-API-program/Integrating-AR-System-forms-with-a-third-party-application-by-using-the-REST-API/Access-and-authentication-for-the-REST-API/).
+    /// Only the issued token is persisted in the account secret store.
+    pub async fn sign_in_to_bmc_helix(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+        server: &BmcHelixServerUrl,
+        password: &str,
+        cancellation: &CancellationScope,
+    ) -> Result<BmcHelixAccountSession> {
+        ensure!(
+            !password.is_empty(),
+            "Helix login requires a nonempty password"
+        );
+        let _lease = self.lock(cancellation).await?;
+        let mut catalogue = self.load()?;
+        let profile = catalogue.bmc_helix_account(account_id)?.clone();
+        let source = CloudTerrastodonCredentialSource::BmcHelix;
+        let CloudTerrastodonAccountCredential::BmcHelix { username, .. } =
+            &profile.registration(source)?.credential
+        else {
+            bail!("the selected Helix account has no username");
+        };
+        let previous = catalogue.bmc_helix_session(account_id, server);
+        ensure!(
+            !matches!(previous, CloudTerrastodonAccountSession::Active { .. }),
+            "the Helix account is already signed in on this server; sign out here before signing in again"
+        );
+        if let CloudTerrastodonAccountSession::Provisioning { generation }
+        | CloudTerrastodonAccountSession::Retired { generation } = previous
+        {
+            cancellation
+                .finish_required("cleaning the prior Helix server session", async |scope| {
+                    self.cleanup_bmc_helix_session(&profile, server, generation, &scope)
+                        .await
+                })
+                .await?;
+        }
+
+        cancellation
+            .deferred(
+                "issuing and saving the Helix server session",
+                async |scope| {
+                    let generation = Uuid::new_v4();
+                    let store = self.credential_store(&profile, source, generation);
+                    Self::prepare_directory(&store.directory)?;
+                    catalogue.bmc_helix_sessions.retain(|record| {
+                        record.account_id != account_id || record.server != *server
+                    });
+                    let index = catalogue.bmc_helix_sessions.len();
+                    catalogue.bmc_helix_sessions.push(BmcHelixAccountSession {
+                        account_id,
+                        server: server.clone(),
+                        session: CloudTerrastodonAccountSession::Provisioning { generation },
+                    });
+                    self.save(&catalogue)?;
+
+                    let provision = async {
+                        let token =
+                            crate::bmc_helix_session::login(server, username, password, &scope)
+                                .await?;
+                        if let Err(error) = store.write(&token) {
+                            if let Err(cleanup) =
+                                crate::bmc_helix_session::logout(server, &token, &scope).await
+                            {
+                                return Err(error.wrap_err(format!(
+                                    "could not revoke the unsaved Helix credential: {cleanup:#}"
+                                )));
+                            }
+                            return Err(error);
+                        }
+                        catalogue.bmc_helix_sessions[index].session =
+                            CloudTerrastodonAccountSession::Active { generation };
+                        self.save(&catalogue)
+                    }
+                    .await;
+                    if let Err(error) = provision {
+                        let cleanup = async {
+                            self.cleanup_bmc_helix_session(&profile, server, generation, &scope)
+                                .await?;
+                            catalogue.bmc_helix_sessions.remove(index);
+                            self.save(&catalogue)
+                        }
+                        .await;
+                        return match cleanup {
+                            Ok(()) => Err(error),
+                            Err(cleanup) => Err(error.wrap_err(format!(
+                                "Helix sign-in cleanup also failed: {cleanup:#}"
+                            ))),
+                        };
+                    }
+                    Ok(catalogue.bmc_helix_sessions[index].clone())
+                },
+            )
+            .await
+    }
+
     /// Retire the selected Entra session, then sign in and verify that its
     /// replacement belongs to the same tenant-local principal.
     ///
@@ -447,6 +631,7 @@ impl CloudTerrastodonAccountStore {
                             account_id,
                             Some(source),
                             Some(generation),
+                            None,
                             executor.cancellation(),
                         )
                         .await
@@ -488,6 +673,10 @@ impl CloudTerrastodonAccountStore {
         let mut catalogue = self.load()?;
         let mut profile = catalogue.by_id(account_id)?.clone();
         let source = source.unwrap_or(profile.preferred_source);
+        ensure!(
+            source != CloudTerrastodonCredentialSource::BmcHelix,
+            "Helix login requires a server and an interactive password"
+        );
         let previous = profile.registration(source)?.session;
         let personal_access_token = match &provisioning {
             AccountCredentialProvisioning::SignIn {
@@ -791,6 +980,9 @@ impl CloudTerrastodonAccountStore {
                 })?;
                 Ok(None)
             }
+            CloudTerrastodonAccountCredential::BmcHelix { .. } => {
+                bail!("Helix login requires a server and an interactive password");
+            }
         }
     }
 
@@ -874,7 +1066,34 @@ impl CloudTerrastodonAccountStore {
         source: Option<CloudTerrastodonCredentialSource>,
         cancellation: &CancellationScope,
     ) -> Result<()> {
-        self.logout_generation(account_id, source, None, cancellation)
+        self.logout_generation(account_id, source, None, None, cancellation)
+            .await
+    }
+
+    /// Retire only this server's JWT and leave other sessions usable.
+    pub async fn logout_bmc_helix_with_executor(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+        server: &BmcHelixServerUrl,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
+        self.load()?.bmc_helix_account(account_id)?;
+        executor
+            .cancellation()
+            .deferred("retiring a Helix server session", async |scope| {
+                let executor = executor.with_cancellation_scope(scope);
+                executor
+                    .retire_bmc_helix_session(account_id, server.id())
+                    .await?;
+                self.logout_generation(
+                    account_id,
+                    Some(CloudTerrastodonCredentialSource::BmcHelix),
+                    None,
+                    Some(server),
+                    executor.cancellation(),
+                )
+                .await
+            })
             .await
     }
 
@@ -883,6 +1102,7 @@ impl CloudTerrastodonAccountStore {
         account_id: CloudTerrastodonAccountId,
         source: Option<CloudTerrastodonCredentialSource>,
         expected_generation: Option<Uuid>,
+        helix_server: Option<&BmcHelixServerUrl>,
         cancellation: &CancellationScope,
     ) -> Result<()> {
         let _lease = self.lock(cancellation).await?;
@@ -905,6 +1125,7 @@ impl CloudTerrastodonAccountStore {
         cancellation
             .deferred("retiring account credential sessions", async |protected| {
                 let mut cleanup = Vec::new();
+                let mut helix_cleanup = Vec::new();
                 for slot in &mut profile.credentials {
                     if source.is_some_and(|source| source != slot.credential.source()) {
                         continue;
@@ -915,6 +1136,21 @@ impl CloudTerrastodonAccountStore {
                     {
                         slot.session = CloudTerrastodonAccountSession::Retired { generation };
                         cleanup.push((slot.credential.source(), generation));
+                    }
+                }
+                if source.is_none_or(|source| source == CloudTerrastodonCredentialSource::BmcHelix)
+                {
+                    for record in &mut catalogue.bmc_helix_sessions {
+                        if record.account_id == account_id
+                            && helix_server.is_none_or(|server| record.server == *server)
+                            && let CloudTerrastodonAccountSession::Active { generation }
+                            | CloudTerrastodonAccountSession::Provisioning { generation }
+                            | CloudTerrastodonAccountSession::Retired { generation } =
+                                record.session
+                        {
+                            record.session = CloudTerrastodonAccountSession::Retired { generation };
+                            helix_cleanup.push((record.server.clone(), generation));
+                        }
                     }
                 }
                 *catalogue
@@ -928,6 +1164,14 @@ impl CloudTerrastodonAccountStore {
                 for (source, generation) in cleanup {
                     if let Err(error) = self
                         .cleanup_generation(&profile, source, generation, &protected)
+                        .await
+                    {
+                        errors.push(error);
+                    }
+                }
+                for (server, generation) in helix_cleanup {
+                    if let Err(error) = self
+                        .cleanup_bmc_helix_session(&profile, &server, generation, &protected)
                         .await
                     {
                         errors.push(error);
@@ -961,7 +1205,22 @@ impl CloudTerrastodonAccountStore {
                 )),
             "account acquired another credential session during removal; retire it and retry"
         );
+        ensure!(
+            catalogue
+                .bmc_helix_sessions
+                .iter()
+                .all(|record| record.account_id != account_id
+                    || matches!(
+                        record.session,
+                        CloudTerrastodonAccountSession::Unprovisioned
+                            | CloudTerrastodonAccountSession::Retired { .. }
+                    )),
+            "account acquired another Helix session during removal; retire it and retry"
+        );
         catalogue.accounts.retain(|value| value.id != account_id);
+        catalogue
+            .bmc_helix_sessions
+            .retain(|record| record.account_id != account_id);
         catalogue
             .defaults
             .retain(|value| value.account_id != account_id);
@@ -1058,7 +1317,8 @@ impl CloudTerrastodonAccountStore {
                         CloudTerrastodonAccountNamespace::AzureDevOps {
                             organization: registered,
                         } => source == AuthSource::Auto && registered == organization,
-                        CloudTerrastodonAccountNamespace::Gitea { .. } => false,
+                        CloudTerrastodonAccountNamespace::Gitea { .. }
+                        | CloudTerrastodonAccountNamespace::BmcHelix { .. } => false,
                     },
                     qualifier,
                 )?
@@ -1103,6 +1363,52 @@ impl CloudTerrastodonAccountStore {
             .clone())
     }
 
+    /// Resolve an explicit Helix account or the selected server's default.
+    pub fn resolve_bmc_helix(
+        &self,
+        server: &BmcHelixServerUrl,
+        account: Option<&CloudTerrastodonAccountArgument>,
+    ) -> Result<CloudTerrastodonAccountProfile> {
+        Ok(self.load()?.resolve_bmc_helix(server, account)?.clone())
+    }
+
+    pub(crate) fn provider_for_bmc_helix(
+        &self,
+        profile: &CloudTerrastodonAccountProfile,
+        server_id: BmcHelixServerId,
+    ) -> Result<CredentialAuthenticationProvider> {
+        let catalogue = self.load()?;
+        ensure!(
+            catalogue.bmc_helix_account(profile.id)? == profile,
+            "account profile changed; resolve its current binding explicitly"
+        );
+        let Some(record) = catalogue
+            .bmc_helix_sessions
+            .iter()
+            .find(|record| record.account_id == profile.id && record.server.id() == server_id)
+        else {
+            bail!("log in to the selected Helix account on this server first");
+        };
+        let CloudTerrastodonAccountSession::Active { generation } = record.session else {
+            bail!("log in to the selected Helix account on this server first");
+        };
+        let store = self.credential_store(
+            profile,
+            CloudTerrastodonCredentialSource::BmcHelix,
+            generation,
+        );
+        ensure!(
+            !store.directory.join("retired").try_exists()?,
+            "selected Helix account session is retired"
+        );
+        Ok(CredentialAuthenticationProvider::for_bmc_helix(
+            profile.id,
+            record.server.clone(),
+            BmcHelixAuthorization::new(&store.read()?)?,
+            generation,
+        ))
+    }
+
     pub fn provider_for(
         &self,
         profile: &CloudTerrastodonAccountProfile,
@@ -1137,7 +1443,7 @@ impl CloudTerrastodonAccountStore {
             profile,
             source
                 .auth_source()
-                .ok_or_else(|| eyre::eyre!("Gitea uses its dedicated provider"))?,
+                .ok_or_else(|| eyre::eyre!("the account uses a service-specific provider"))?,
         )?])
     }
 
@@ -1164,7 +1470,7 @@ impl CloudTerrastodonAccountStore {
         let source = registration
             .credential
             .auth_source()
-            .ok_or_else(|| eyre::eyre!("Gitea accounts use the tea provider"))?;
+            .ok_or_else(|| eyre::eyre!("the account uses a service-specific provider"))?;
         let mut state =
             ResolvedAuthContext::new(source, None, crate::is_headless_auth_context(), None);
         state.account_id = profile.id;
@@ -1213,6 +1519,9 @@ impl CloudTerrastodonAccountStore {
             CloudTerrastodonAccountCredential::Gitea { .. } => {
                 bail!("Gitea accounts use the tea provider");
             }
+            CloudTerrastodonAccountCredential::BmcHelix { .. } => {
+                bail!("BMC Helix accounts use the AR System provider");
+            }
         }
         Ok(AuthContext::Resolved(Arc::new(state)))
     }
@@ -1229,6 +1538,8 @@ mod tests {
     use cloud_terrastodon_azure_types::EntraApplicationClientId;
     use cloud_terrastodon_cache::WorkCache;
     use cloud_terrastodon_command::CancellationToken;
+    use facet::Facet;
+
     #[tokio::test]
     async fn rename_preserves_account_identity_and_enforces_namespace_uniqueness() -> Result<()> {
         let directory = tempfile::tempdir()?;
@@ -1297,6 +1608,97 @@ mod tests {
             .await
     }
 
+    #[tokio::test]
+    async fn helix_server_defaults_are_independent_for_shared_accounts() -> Result<()> {
+        let directory = tempfile::tempdir()?;
+        let store = CloudTerrastodonAccountStore::new(directory.path().join("accounts"))?;
+        let production = "https://helix.example.invalid".parse()?;
+        let sandbox = "https://helix-test.example.invalid".parse()?;
+        CancellationToken::new()
+            .with_async_scope(async |scope| {
+                let account = store
+                    .add(
+                        "operator".parse()?,
+                        CloudTerrastodonAccountCredential::BmcHelix {
+                            server: None,
+                            username: "test-operator".parse()?,
+                        },
+                        &scope,
+                    )
+                    .await?;
+                assert!(store.resolve_bmc_helix(&production, None).is_err());
+                store
+                    .set_bmc_helix_default(&production, account.id, &scope)
+                    .await?;
+                assert!(store.resolve_bmc_helix(&sandbox, None).is_err());
+                assert_eq!(
+                    store
+                        .resolve_bmc_helix(&sandbox, Some(&"operator".parse()?))?
+                        .id,
+                    account.id
+                );
+                store
+                    .set_bmc_helix_default(&sandbox, account.id, &scope)
+                    .await?;
+                store.clear_bmc_helix_default(&production, &scope).await?;
+                assert!(store.resolve_bmc_helix(&production, None).is_err());
+                assert_eq!(store.resolve_bmc_helix(&sandbox, None)?.id, account.id);
+                eyre::Ok(())
+            })
+            .await
+    }
+
+    #[test]
+    fn helix_legacy_catalogue_preserves_account_default_and_generation() -> Result<()> {
+        #[derive(Facet)]
+        struct LegacyCatalogue {
+            accounts: Vec<CloudTerrastodonAccountProfile>,
+            defaults: Vec<CloudTerrastodonAccountDefault>,
+        }
+
+        let directory = tempfile::tempdir()?;
+        let store = CloudTerrastodonAccountStore::new(directory.path().join("accounts"))?;
+        let server: BmcHelixServerUrl = "https://helix.example.invalid".parse()?;
+        let mut account = CloudTerrastodonAccountProfile::new(
+            CloudTerrastodonAccountId::new(Uuid::from_u128(1)),
+            "operator".parse()?,
+            CloudTerrastodonAccountCredential::BmcHelix {
+                server: Some(server.clone()),
+                username: "test-operator".parse()?,
+            },
+        );
+        let source = CloudTerrastodonCredentialSource::BmcHelix;
+        let session = CloudTerrastodonAccountSession::Active {
+            generation: Uuid::from_u128(2),
+        };
+        account.registration_mut(source)?.session = session;
+        let id = account.id;
+        let legacy = LegacyCatalogue {
+            defaults: vec![CloudTerrastodonAccountDefault {
+                namespace: account.namespace.clone(),
+                account_id: id,
+            }],
+            accounts: vec![account],
+        };
+        CloudTerrastodonAccountStore::prepare_directory(&store.root)?;
+        std::fs::write(
+            store.root.join("accounts.json"),
+            facet_json::to_vec(&legacy)?,
+        )?;
+        let catalogue = store.load()?;
+        assert_eq!(catalogue.resolve_bmc_helix(&server, None)?.id, id);
+        assert_eq!(catalogue.bmc_helix_session(id, &server), session);
+        assert_eq!(
+            catalogue.bmc_helix_session(id, &"https://other.example.invalid".parse()?),
+            CloudTerrastodonAccountSession::Unprovisioned
+        );
+        store.save(&catalogue)?;
+        assert_eq!(
+            store.load()?.bmc_helix_sessions,
+            catalogue.bmc_helix_sessions
+        );
+        Ok(())
+    }
 
     #[tokio::test]
     async fn device_code_sign_in_requires_registered_azure_cli_credentials() -> Result<()> {
@@ -1486,7 +1888,7 @@ mod tests {
         );
         let mut catalogue = CloudTerrastodonAccountCatalogue {
             accounts: vec![other_pat_profile, entra_profile.clone()],
-            defaults: Vec::new(),
+            ..Default::default()
         };
         store.save(&catalogue)?;
         let entra = AzureBearerAuthenticationSelection {
@@ -1743,6 +2145,7 @@ mod tests {
                         account.id,
                         Some(CloudTerrastodonCredentialSource::AzureCli),
                         Some(Uuid::from_u128(9)),
+                        None,
                         &scope,
                     )
                     .await

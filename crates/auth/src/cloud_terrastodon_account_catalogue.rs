@@ -1,8 +1,13 @@
+use crate::BmcHelixAccountSession;
 use crate::CloudTerrastodonAccountDefault;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountArgument;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountCredential;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountNamespace;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountProfile;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountSession;
+use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerUrl;
 use eyre::Result;
 use eyre::bail;
 use eyre::ensure;
@@ -14,6 +19,8 @@ use std::collections::HashSet;
 pub struct CloudTerrastodonAccountCatalogue {
     pub accounts: Vec<CloudTerrastodonAccountProfile>,
     pub defaults: Vec<CloudTerrastodonAccountDefault>,
+    #[facet(default)]
+    pub bmc_helix_sessions: Vec<BmcHelixAccountSession>,
 }
 impl CloudTerrastodonAccountCatalogue {
     pub fn validate(&self) -> Result<()> {
@@ -29,6 +36,15 @@ impl CloudTerrastodonAccountCatalogue {
                 aliases.insert((account.namespace.clone(), &account.alias)),
                 "account catalogue contains a duplicate alias in one namespace"
             );
+            if let CloudTerrastodonAccountNamespace::BmcHelix { .. } = account.namespace {
+                ensure!(
+                    account
+                        .registration(CloudTerrastodonCredentialSource::BmcHelix)?
+                        .session
+                        == CloudTerrastodonAccountSession::Unprovisioned,
+                    "Helix sessions must use a server-specific credential record"
+                );
+            }
         }
         let mut defaults = HashSet::new();
         for default in &self.defaults {
@@ -37,12 +53,123 @@ impl CloudTerrastodonAccountCatalogue {
                 "account catalogue contains duplicate defaults"
             );
             let account = self.by_id(default.account_id)?;
+            let compatible = match &default.namespace {
+                CloudTerrastodonAccountNamespace::BmcHelix { server } => {
+                    server.is_some()
+                        && matches!(
+                            account.namespace,
+                            CloudTerrastodonAccountNamespace::BmcHelix { .. }
+                        )
+                }
+                namespace => account.namespace == *namespace,
+            };
             ensure!(
-                account.namespace == default.namespace,
+                compatible,
                 "configured account default has the wrong namespace"
             );
         }
+        let mut sessions = HashSet::new();
+        let mut generations = HashSet::new();
+        for session in &self.bmc_helix_sessions {
+            self.bmc_helix_account(session.account_id)?;
+            ensure!(
+                sessions.insert((session.account_id, &session.server)),
+                "account catalogue contains duplicate sessions for one Helix server"
+            );
+            let generation = match session.session {
+                CloudTerrastodonAccountSession::Provisioning { generation }
+                | CloudTerrastodonAccountSession::Active { generation }
+                | CloudTerrastodonAccountSession::Retired { generation } => generation,
+                CloudTerrastodonAccountSession::Unprovisioned => {
+                    bail!("a saved Helix session must have a credential generation");
+                }
+            };
+            ensure!(
+                generations.insert((session.account_id, generation)),
+                "the same Helix credential generation cannot be used on different servers"
+            );
+        }
         Ok(())
+    }
+
+    /// Adopt the old server-bound credential generation without changing its
+    /// account ID, alias namespace, server default, or secret-store key.
+    pub(crate) fn migrate_bmc_helix_sessions(&mut self) {
+        for profile in &mut self.accounts {
+            for slot in &mut profile.credentials {
+                if let CloudTerrastodonAccountCredential::BmcHelix {
+                    server: Some(server),
+                    ..
+                } = &slot.credential
+                    && slot.session != CloudTerrastodonAccountSession::Unprovisioned
+                {
+                    self.bmc_helix_sessions.push(BmcHelixAccountSession {
+                        account_id: profile.id,
+                        server: server.clone(),
+                        session: std::mem::replace(
+                            &mut slot.session,
+                            CloudTerrastodonAccountSession::Unprovisioned,
+                        ),
+                    });
+                }
+            }
+        }
+    }
+
+    pub(crate) fn bmc_helix_account(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+    ) -> Result<&CloudTerrastodonAccountProfile> {
+        let profile = self.by_id(account_id)?;
+        ensure!(
+            matches!(
+                profile.namespace,
+                CloudTerrastodonAccountNamespace::BmcHelix { .. }
+            ),
+            "selected account is not a BMC Helix account"
+        );
+        Ok(profile)
+    }
+
+    /// Look up the saved session for exactly this account and server.
+    pub fn bmc_helix_session(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+        server: &BmcHelixServerUrl,
+    ) -> CloudTerrastodonAccountSession {
+        self.bmc_helix_sessions
+            .iter()
+            .find(|record| record.account_id == account_id && record.server == *server)
+            .map_or(CloudTerrastodonAccountSession::Unprovisioned, |record| {
+                record.session
+            })
+    }
+
+    /// An explicit account is eligible on any Helix server. Without an
+    /// explicit selector, use only the account configured for this server.
+    pub fn resolve_bmc_helix(
+        &self,
+        server: &BmcHelixServerUrl,
+        account: Option<&CloudTerrastodonAccountArgument>,
+    ) -> Result<&CloudTerrastodonAccountProfile> {
+        if let Some(account) = account {
+            return self.resolve_in_namespaces(
+                account,
+                |namespace| matches!(namespace, CloudTerrastodonAccountNamespace::BmcHelix { .. }),
+                " among BMC Helix accounts",
+            );
+        }
+        let namespace = CloudTerrastodonAccountNamespace::BmcHelix {
+            server: Some(server.clone()),
+        };
+        let Some(default) = self
+            .defaults
+            .iter()
+            .find(|default| default.namespace == namespace)
+        else {
+            bail!("no default account is configured for the Helix server {server}");
+        };
+        self.bmc_helix_account(default.account_id)
     }
 
     pub fn by_id(&self, id: CloudTerrastodonAccountId) -> Result<&CloudTerrastodonAccountProfile> {
@@ -60,6 +187,12 @@ impl CloudTerrastodonAccountCatalogue {
         account: Option<&CloudTerrastodonAccountArgument>,
         namespace: Option<&CloudTerrastodonAccountNamespace>,
     ) -> Result<&CloudTerrastodonAccountProfile> {
+        if let Some(CloudTerrastodonAccountNamespace::BmcHelix {
+            server: Some(server),
+        }) = namespace
+        {
+            return self.resolve_bmc_helix(server, account);
+        }
         if let Some(account) = account {
             return self.resolve_in_namespaces(
                 account,
@@ -124,6 +257,14 @@ impl CloudTerrastodonAccountCatalogue {
                         }
                         CloudTerrastodonAccountNamespace::Gitea { instance } => {
                             format!("Gitea instance {instance}")
+                        }
+                        CloudTerrastodonAccountNamespace::BmcHelix {
+                            server: Some(server),
+                        } => {
+                            format!("BMC Helix server {server}")
+                        }
+                        CloudTerrastodonAccountNamespace::BmcHelix { server: None } => {
+                            "BMC Helix".to_owned()
                         }
                     };
                     format!("  {} ({namespace})", account.id)

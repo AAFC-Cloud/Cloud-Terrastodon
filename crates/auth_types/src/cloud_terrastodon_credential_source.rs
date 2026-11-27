@@ -16,6 +16,7 @@ pub enum CloudTerrastodonCredentialSource {
     WorkloadIdentity,
     PersonalAccessToken,
     Gitea,
+    BmcHelix,
 }
 
 impl CloudTerrastodonCredentialSource {
@@ -25,7 +26,7 @@ impl CloudTerrastodonCredentialSource {
             Self::Browser => Some(AuthSource::Browser),
             Self::WorkloadIdentity => Some(AuthSource::WorkloadIdentity),
             Self::PersonalAccessToken => Some(AuthSource::PersonalAccessToken),
-            Self::Gitea => None,
+            Self::Gitea | Self::BmcHelix => None,
         }
     }
 }
@@ -47,9 +48,13 @@ impl TryFrom<AuthSource> for CloudTerrastodonCredentialSource {
 
 impl fmt::Display for CloudTerrastodonCredentialSource {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.auth_source() {
-            Some(source) => source.fmt(formatter),
-            None => formatter.write_str("gitea"),
+        match self {
+            Self::Gitea => formatter.write_str("gitea"),
+            Self::BmcHelix => formatter.write_str("helix"),
+            Self::AzureCli => AuthSource::AzureCli.fmt(formatter),
+            Self::Browser => AuthSource::Browser.fmt(formatter),
+            Self::WorkloadIdentity => AuthSource::WorkloadIdentity.fmt(formatter),
+            Self::PersonalAccessToken => AuthSource::PersonalAccessToken.fmt(formatter),
         }
     }
 }
@@ -58,6 +63,9 @@ impl FromStr for CloudTerrastodonCredentialSource {
     fn from_str(value: &str) -> Result<Self> {
         if value.eq_ignore_ascii_case("gitea") {
             return Ok(Self::Gitea);
+        }
+        if value.eq_ignore_ascii_case("helix") {
+            return Ok(Self::BmcHelix);
         }
         value.parse::<AuthSource>()?.try_into()
     }

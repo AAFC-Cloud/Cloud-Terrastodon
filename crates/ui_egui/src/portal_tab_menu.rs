@@ -50,7 +50,7 @@ impl MyApp {
         ui.separator();
         let can_refresh = self
             .azure_content_for_tab(id)
-            .is_some_and(|content| self.can_refresh_portal_view_in(tab.target(), content));
+            .is_some_and(|content| self.can_refresh_portal_view_in(tab.target(), id, content));
         ui.add_enabled_ui(can_refresh, |ui| {
             if menu_item(ui, "Refresh", Some(REFRESH_TAB_SHORTCUT)) {
                 *action = Some(PortalTabAction::Refresh(id));

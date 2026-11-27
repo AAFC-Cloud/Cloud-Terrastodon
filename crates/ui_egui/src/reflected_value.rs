@@ -23,6 +23,10 @@ use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionQueueStatus;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsServiceEndpointKind;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemId;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerName;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerUrl;
+use cloud_terrastodon_bmc_helix_types::BmcHelixTicketRecordId;
+use cloud_terrastodon_bmc_helix_types::BmcHelixWorkOrderId;
 use eframe::egui::Ui;
 use facet::Def;
 use facet::Facet;
@@ -145,6 +149,18 @@ impl<'a> ReflectedValue<'a> {
             }
             if let Some(status) = value.get::<AzureDevOpsBuildDefinitionQueueStatus>() {
                 return Some(status.to_string());
+            }
+            if let Some(name) = value.get::<BmcHelixServerName>() {
+                return Some(name.to_string());
+            }
+            if let Some(url) = value.get::<BmcHelixServerUrl>() {
+                return Some(url.to_string());
+            }
+            if let Some(id) = value.get::<BmcHelixWorkOrderId>() {
+                return Some(id.to_string());
+            }
+            if let Some(id) = value.get::<BmcHelixTicketRecordId>() {
+                return Some(id.to_string());
             }
             if let Some(timestamp) = value.get::<Timestamp>() {
                 return Some(timestamp.to_string());

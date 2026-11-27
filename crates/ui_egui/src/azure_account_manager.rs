@@ -3,13 +3,17 @@ use crate::azure_account_confirmation::AzureAccountConfirmation;
 use crate::azure_account_details::AzureAccountDetails;
 use crate::azure_account_inventory_row::AzureAccountInventoryRow;
 use crate::azure_account_manager_page::AzureAccountManagerPage;
+use crate::azure_account_registration_form::AzureAccountRegistrationForm;
 use crate::reflected_table::ReflectedTable;
 use crate::reflected_table_column::ReflectedTableColumn;
 use cloud_terrastodon_auth::CloudTerrastodonAccountCatalogue;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountNamespace;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
 use cloud_terrastodon_azure::AzureTenantAlias;
 use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_bmc_helix::BmcHelixServerCatalog;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerUrl;
 use eframe::egui::Id;
 use eframe::egui::ScrollArea;
 use eframe::egui::Ui;
@@ -23,9 +27,22 @@ use teamy_tracing::gui::DiagnosticReportView;
 pub(crate) struct AzureAccountManager {
     page: AzureAccountManagerPage,
     error: Option<DiagnosticReport>,
+    helix_server_for_new_account: Option<BmcHelixServerUrl>,
 }
 
 impl AzureAccountManager {
+    pub fn needs_helix_servers(&self, catalogue: &CloudTerrastodonAccountCatalogue) -> bool {
+        let AzureAccountManagerPage::Account(details) = &self.page else {
+            return false;
+        };
+        catalogue.by_id(details.account_id()).is_ok_and(|account| {
+            matches!(
+                account.namespace,
+                CloudTerrastodonAccountNamespace::BmcHelix { .. }
+            )
+        })
+    }
+
     pub(crate) fn cli_command(&self) -> Option<String> {
         match &self.page {
             AzureAccountManagerPage::Accounts => Some("ct account list".into()),
@@ -44,10 +61,31 @@ impl AzureAccountManager {
         self.navigate(AzureAccountManagerPage::Add(Default::default()));
     }
 
+    pub fn open_add_helix(&mut self, server: &BmcHelixServerUrl) {
+        self.navigate(AzureAccountManagerPage::Add(
+            AzureAccountRegistrationForm::for_helix(),
+        ));
+        self.helix_server_for_new_account = Some(server.clone());
+    }
+
     pub fn open_account(&mut self, id: CloudTerrastodonAccountId) {
         self.navigate(AzureAccountManagerPage::Account(AzureAccountDetails::new(
             id,
         )));
+    }
+
+    pub fn open_helix_account(&mut self, id: CloudTerrastodonAccountId, server: BmcHelixServerUrl) {
+        self.navigate(AzureAccountManagerPage::Account(
+            AzureAccountDetails::for_helix(id, server),
+        ));
+    }
+
+    pub fn open_newly_added_account(&mut self, id: CloudTerrastodonAccountId) {
+        if let Some(server) = self.helix_server_for_new_account.take() {
+            self.open_helix_account(id, server);
+        } else {
+            self.open_account(id);
+        }
     }
 
     pub fn open_reauthentication(
@@ -70,12 +108,14 @@ impl AzureAccountManager {
     fn navigate(&mut self, page: AzureAccountManagerPage) {
         self.page = page;
         self.error = None;
+        self.helix_server_for_new_account = None;
     }
 
     pub fn show(
         &mut self,
         ui: &mut Ui,
         catalogue: Option<&CloudTerrastodonAccountCatalogue>,
+        helix_servers: Option<&BmcHelixServerCatalog>,
         busy: bool,
         tracked_tenants: &[(AzureTenantId, Vec<AzureTenantAlias>)],
         open_tenants: &mut bool,
@@ -87,7 +127,7 @@ impl AzureAccountManager {
         }
         let response = ui
             .add_enabled_ui(!busy, |ui| {
-                self.show_page(ui, catalogue, tracked_tenants, open_tenants)
+                self.show_page(ui, catalogue, helix_servers, tracked_tenants, open_tenants)
             })
             .inner;
         match response {
@@ -107,6 +147,7 @@ impl AzureAccountManager {
         &mut self,
         ui: &mut Ui,
         catalogue: Option<&CloudTerrastodonAccountCatalogue>,
+        helix_servers: Option<&BmcHelixServerCatalog>,
         tracked_tenants: &[(AzureTenantId, Vec<AzureTenantAlias>)],
         open_tenants: &mut bool,
     ) -> Result<Option<AzureAccountAction>> {
@@ -151,7 +192,7 @@ impl AzureAccountManager {
                             details.clear_drafts();
                             return Ok(None);
                         };
-                        details.show(ui, catalogue)
+                        details.show(ui, catalogue, helix_servers)
                     }
                 }
             })

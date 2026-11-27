@@ -1,0 +1,26 @@
+[package]
+name = "cloud_terrastodon_bmc_helix_cli"
+description = "BMC Helix command-line interface for Cloud Terrastodon"
+version = "0.38.0" # CT_VERSION
+readme.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+cloud_terrastodon_app.workspace = true
+cloud_terrastodon_auth.workspace = true
+cloud_terrastodon_auth_types.workspace = true
+cloud_terrastodon_bmc_helix.workspace = true
+cloud_terrastodon_bmc_helix_types.workspace = true
+cloud_terrastodon_command.workspace = true
+cloud_terrastodon_execution.workspace = true
+eyre.workspace = true
+facet = { workspace = true, features = ["nonzero"] }
+figue.workspace = true
+
+[lints]
+workspace = true

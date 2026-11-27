@@ -5,11 +5,13 @@ use crate::entra_user_section::EntraUserSection;
 use crate::entra_user_subject::EntraUserSubject;
 use crate::portal_azure_content::PortalAzureContent;
 use crate::portal_azure_devops_organization_view::PortalAzureDevOpsOrganizationView;
+use crate::portal_helix_server_view::PortalHelixServerView;
 use crate::portal_page::PortalPage;
 use crate::portal_resource_output_target::PortalResourceOutputTarget;
 use crate::portal_resource_scope::PortalResourceScope;
 use crate::portal_resource_scope::network_security_group_id;
 use crate::portal_scope_view::PortalScopeView;
+use crate::portal_tab_id::PortalTabId;
 use crate::portal_tab_target::PortalTabTarget;
 use crate::resource_snapshot::load_network_security_group;
 use crate::scope_activity::load_scope_activity;
@@ -30,18 +32,35 @@ use eframe::egui::Ui;
 
 impl MyApp {
     pub(crate) fn can_refresh_portal_view(&self, target: &PortalTabTarget) -> bool {
-        self.can_refresh_portal_view_in(target, &self.azure)
+        self.can_refresh_portal_view_in(target, self.tabs.active_id(), &self.azure)
     }
 
     pub(crate) fn can_refresh_portal_view_in(
         &self,
         target: &PortalTabTarget,
+        tab: PortalTabId,
         content: &PortalAzureContent,
     ) -> bool {
         let has_azure_account = self
             .ready_azure_authentication_for(content.authentication)
             .is_some();
         match target {
+            PortalTabTarget::Page(PortalPage::HelixServers)
+            | PortalTabTarget::HelixServer {
+                view: PortalHelixServerView::Overview,
+                ..
+            } => !matches!(self.helix.servers, Loadable::Loading { .. }),
+            PortalTabTarget::HelixServer { server, view } => {
+                self.helix.server(server).is_some_and(|server| {
+                    self.ready_helix_account(tab, &server.url)
+                        .is_some_and(|account| {
+                            !matches!(
+                                self.helix.work(tab, &server, account, view),
+                                Loadable::Loading { .. }
+                            )
+                        })
+                })
+            }
             PortalTabTarget::Page(PortalPage::Entra) => false,
             PortalTabTarget::Page(PortalPage::EntraMyUser) => {
                 has_azure_account
@@ -271,6 +290,19 @@ impl MyApp {
             return;
         }
         match target {
+            PortalTabTarget::Page(PortalPage::HelixServers)
+            | PortalTabTarget::HelixServer {
+                view: PortalHelixServerView::Overview,
+                ..
+            } => self.refresh_helix_catalogue(),
+            PortalTabTarget::HelixServer { server, view } => {
+                if let Some(server) = self.helix.server(server)
+                    && let Some(account) =
+                        self.ready_helix_account(self.tabs.active_id(), &server.url)
+                {
+                    self.load_helix_work(&server, account, view, true);
+                }
+            }
             PortalTabTarget::Page(PortalPage::Entra) => {}
             PortalTabTarget::Page(PortalPage::EntraMyUser) => {
                 self.load_entra_directory(target, true)
@@ -409,6 +441,14 @@ impl MyApp {
                 self.load_azure_devops_project_section(organization, *project, *view, true);
             }
             PortalTabTarget::Page(PortalPage::Accounts) => {
+                if self
+                    .account_picker
+                    .catalogue
+                    .as_ref()
+                    .is_ok_and(|catalogue| self.account_manager.needs_helix_servers(catalogue))
+                {
+                    self.refresh_helix_catalogue();
+                }
                 self.handle_account_picker_action(AzureAccountPickerAction::Reload, ui.ctx());
             }
             PortalTabTarget::Page(PortalPage::AzureDevOpsOrganizations)

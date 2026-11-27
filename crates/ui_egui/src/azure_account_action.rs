@@ -8,10 +8,11 @@ use cloud_terrastodon_auth_types::CloudTerrastodonAccountAlias;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountCredential;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerUrl;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
-/// Account work submitted from a UI form. The PAT submission owns its credential.
+/// Account work submitted from a UI form. Secret submissions own the entered value.
 pub(crate) enum AzureAccountAction {
     Reload,
     Add {
@@ -40,6 +41,21 @@ pub(crate) enum AzureAccountAction {
         account_id: CloudTerrastodonAccountId,
         token: AzureDevOpsPersonalAccessToken,
     },
+    SignInToHelix {
+        account_id: CloudTerrastodonAccountId,
+        server: BmcHelixServerUrl,
+        password: String,
+        reauthenticate: bool,
+    },
+    SignOutOfHelix {
+        account_id: CloudTerrastodonAccountId,
+        server: BmcHelixServerUrl,
+    },
+    SetHelixDefault {
+        account_id: CloudTerrastodonAccountId,
+        server: BmcHelixServerUrl,
+    },
+    ClearHelixDefault(BmcHelixServerUrl),
     Reauthenticate {
         account_id: CloudTerrastodonAccountId,
         method: AzureAccountSignInMethod,
@@ -78,6 +94,9 @@ impl AzureAccountAction {
                 *account_id,
                 CloudTerrastodonCredentialSource::PersonalAccessToken,
             )),
+            Self::SignInToHelix { account_id, .. } => {
+                Some((*account_id, CloudTerrastodonCredentialSource::BmcHelix))
+            }
             _ => None,
         }
     }
@@ -138,6 +157,36 @@ impl AzureAccountAction {
                         cancellation,
                     )
                     .await?;
+            }
+            Self::SignInToHelix {
+                account_id,
+                server,
+                password,
+                reauthenticate,
+            } => {
+                if reauthenticate {
+                    let retirement = work_cache.job_executor(executor)?;
+                    store
+                        .logout_bmc_helix_with_executor(account_id, &server, &retirement)
+                        .await?;
+                }
+                store
+                    .sign_in_to_bmc_helix(account_id, &server, &password, cancellation)
+                    .await?;
+            }
+            Self::SignOutOfHelix { account_id, server } => {
+                let executor = work_cache.job_executor(executor)?;
+                store
+                    .logout_bmc_helix_with_executor(account_id, &server, &executor)
+                    .await?;
+            }
+            Self::SetHelixDefault { account_id, server } => {
+                store
+                    .set_bmc_helix_default(&server, account_id, cancellation)
+                    .await?;
+            }
+            Self::ClearHelixDefault(server) => {
+                store.clear_bmc_helix_default(&server, cancellation).await?;
             }
             Self::Reauthenticate { account_id, method } => {
                 {

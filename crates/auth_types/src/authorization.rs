@@ -1,4 +1,5 @@
 use crate::BearerAuthorization;
+use crate::BmcHelixAuthorization;
 use crate::PersonalAccessTokenAuthorization;
 use eyre::Result;
 use http::HeaderValue;
@@ -19,6 +20,8 @@ pub enum Authorization {
     Bearer(BearerAuthorization),
     /// A validated, sensitive PAT HTTP Basic header with an empty username.
     PersonalAccessToken(PersonalAccessTokenAuthorization),
+    /// A validated, sensitive AR-JWT header for a BMC Helix server.
+    BmcHelix(BmcHelixAuthorization),
 }
 
 impl Authorization {
@@ -42,6 +45,7 @@ impl Authorization {
             Self::Anonymous => None,
             Self::Bearer(authorization) => Some(authorization.header()),
             Self::PersonalAccessToken(authorization) => Some(authorization.header()),
+            Self::BmcHelix(authorization) => Some(authorization.header()),
         }
     }
 }
@@ -59,6 +63,7 @@ mod tests {
         for authorization in [
             Authorization::bearer(synthetic)?,
             Authorization::personal_access_token(synthetic)?,
+            Authorization::BmcHelix(BmcHelixAuthorization::new(synthetic)?),
         ] {
             let cloned = authorization.clone();
             let header = cloned.header().unwrap();

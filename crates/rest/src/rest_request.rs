@@ -205,6 +205,12 @@ impl RestRequest {
                 RestService::AzureDevOps,
                 AuthenticationSelection::AzureDevOpsPersonalAccessToken { .. }
             ) | (
+                RestService::BmcHelix,
+                AuthenticationSelection::BmcHelix { .. }
+            ) | (
+                RestService::BmcHelixInnovationSuite,
+                AuthenticationSelection::BmcHelixInnovationSuite { .. }
+            ) | (
                 RestService::AzureDevOps
                     | RestService::MicrosoftGraph
                     | RestService::AzureResourceManager
@@ -217,11 +223,25 @@ impl RestRequest {
             compatible,
             "REST service requires an explicit compatible authentication selection"
         );
+        ensure!(
+            !matches!(
+                self.service,
+                RestService::BmcHelix | RestService::BmcHelixInnovationSuite
+            ) || self.url.scheme() == "https",
+            "Helix requests require HTTPS"
+        );
+        ensure!(
+            self.service != RestService::BmcHelixInnovationSuite
+                || self.url.path().starts_with("/api/rx/"),
+            "Innovation Suite authorization requires an Innovation Suite API route"
+        );
         if let Some(headers) = &self.headers {
             let headers = headers.to_header_map()?;
             ensure!(
                 !headers.contains_key(http::header::AUTHORIZATION)
-                    && !headers.contains_key(http::header::PROXY_AUTHORIZATION),
+                    && !headers.contains_key(http::header::PROXY_AUTHORIZATION)
+                    && (self.service != RestService::BmcHelixInnovationSuite
+                        || !headers.contains_key(http::header::COOKIE)),
                 "REST authorization must come from the executor, not request headers"
             );
         }

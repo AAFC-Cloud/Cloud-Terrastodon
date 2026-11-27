@@ -7,6 +7,8 @@ use crate::portal_auditing::show_portal_auditing;
 use crate::portal_azure_devops_organization::show_azure_devops_organization;
 use crate::portal_azure_devops_organization_view::PortalAzureDevOpsOrganizationView;
 use crate::portal_azure_devops_project::show_azure_devops_project;
+use crate::portal_helix_server_ui::show_helix_server;
+use crate::portal_helix_servers_ui::show_helix_servers;
 use crate::portal_home::portal_home;
 use crate::portal_page::PortalPage;
 use crate::portal_pim::show_portal_pim;
@@ -82,6 +84,7 @@ impl MyApp {
                     | PortalTabTarget::Resource(_)
                     | PortalTabTarget::AzureDevOpsOrganization { .. }
                     | PortalTabTarget::AzureDevOpsProject { .. }
+                    | PortalTabTarget::HelixServer { .. }
             );
         // Home places its account control beside the services heading.
         let show_picker = target.page() != PortalPage::Home && show_account_in_tab_header(&target);
@@ -189,6 +192,10 @@ impl MyApp {
                 project,
                 view,
             } => show_azure_devops_project(self, ui, &organization, project, view),
+            PortalTabTarget::Page(PortalPage::HelixServers) => show_helix_servers(self, ui),
+            PortalTabTarget::HelixServer { server, view } => {
+                show_helix_server(self, ui, &server, &view)
+            }
             PortalTabTarget::Page(PortalPage::StartingPoints) => starting_points_ui(self, ui),
             PortalTabTarget::Page(PortalPage::SelectedItems) => selected_items_ui(self, ui),
             PortalTabTarget::Page(PortalPage::WorkDirs) => {

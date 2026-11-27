@@ -389,7 +389,7 @@ impl AzureAccountPicker {
         }
     }
 
-    fn display_alias(alias: &str, demo_mode: bool) -> &str {
+    pub(crate) fn display_alias(alias: &str, demo_mode: bool) -> &str {
         if demo_mode && alias.contains('@') {
             AzureAccountProfile::REDACTED_EMAIL
         } else {

@@ -9,6 +9,10 @@ pub enum RestService {
     AzureResourceManager,
     AzureKeyVault,
     AzureContainerRegistry,
+    /// An explicitly selected BMC Helix server with AR-JWT authorization.
+    BmcHelix,
+    /// BMC Helix Innovation Suite, authorized by the selected server's AR-JWT.
+    BmcHelixInnovationSuite,
 }
 
 impl RestService {

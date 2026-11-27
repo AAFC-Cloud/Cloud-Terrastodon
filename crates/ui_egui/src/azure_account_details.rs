@@ -4,6 +4,7 @@ use crate::azure_account_registration_form::parse_client_id;
 use crate::azure_account_registration_form::source_label;
 use crate::azure_account_registration_form::text_input;
 use crate::azure_account_sign_in_method::AzureAccountSignInMethod;
+use crate::helix_account_details::HelixAccountDetails;
 use cloud_terrastodon_auth::AzureDevOpsPersonalAccessToken;
 use cloud_terrastodon_auth::CloudTerrastodonAccountCatalogue;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountCredential;
@@ -14,6 +15,8 @@ use cloud_terrastodon_auth_types::CloudTerrastodonAccountProfile;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountSession;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialRegistration;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
+use cloud_terrastodon_bmc_helix::BmcHelixServerCatalog;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerUrl;
 use eframe::egui::Align;
 use eframe::egui::Button;
 use eframe::egui::Key;
@@ -27,6 +30,7 @@ pub(crate) struct AzureAccountDetails {
     rename_alias: Option<String>,
     browser_client_id: Option<String>,
     personal_access_token: Option<String>,
+    helix: HelixAccountDetails,
     confirmation: Option<AzureAccountConfirmation>,
 }
 
@@ -41,7 +45,15 @@ impl AzureAccountDetails {
             rename_alias: None,
             browser_client_id: None,
             personal_access_token: None,
+            helix: HelixAccountDetails::default(),
             confirmation: None,
+        }
+    }
+
+    pub fn for_helix(id: CloudTerrastodonAccountId, server: BmcHelixServerUrl) -> Self {
+        Self {
+            helix: HelixAccountDetails::new(server),
+            ..Self::new(id)
         }
     }
 
@@ -59,6 +71,7 @@ impl AzureAccountDetails {
         self.rename_alias = None;
         self.browser_client_id = None;
         self.personal_access_token = None;
+        self.helix.clear_drafts();
         self.confirmation = None;
     }
 
@@ -66,6 +79,7 @@ impl AzureAccountDetails {
         &mut self,
         ui: &mut Ui,
         catalogue: &CloudTerrastodonAccountCatalogue,
+        helix_servers: Option<&BmcHelixServerCatalog>,
     ) -> Result<Option<AzureAccountAction>> {
         let Ok(account) = catalogue.by_id(self.id) else {
             self.clear_drafts();
@@ -134,6 +148,10 @@ impl AzureAccountDetails {
         }
         self.confirmation = None;
 
+        let helix = matches!(
+            account.namespace,
+            CloudTerrastodonAccountNamespace::BmcHelix { .. }
+        );
         let manages_service_default = matches!(
             account.namespace,
             CloudTerrastodonAccountNamespace::AzureDevOps { .. }
@@ -174,7 +192,11 @@ impl AzureAccountDetails {
             .inner;
         if account_action.is_some() || self.confirmation.is_some() {
             self.personal_access_token = None;
+            self.helix.clear_drafts();
             return Ok(account_action);
+        }
+        if helix {
+            return Ok(self.helix.show(ui, account.id, catalogue, helix_servers));
         }
 
         ui.separator();
@@ -421,6 +443,7 @@ impl AzureAccountDetails {
                 format!("Azure DevOps · {organization}")
             }
             CloudTerrastodonAccountNamespace::Gitea { instance } => format!("Gitea · {instance}"),
+            CloudTerrastodonAccountNamespace::BmcHelix { .. } => "BMC Helix".to_owned(),
         }
     }
 

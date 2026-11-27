@@ -7,6 +7,7 @@ use crate::azure_account_picker::AzureAccountPicker;
 use crate::azure_account_picker_action::AzureAccountPickerAction;
 use crate::azure_account_sign_in_method::AzureAccountSignInMethod;
 use crate::capture_gui_failure::capture_gui_failure;
+use crate::entra_directory_ui::loaded;
 use crate::portal_page::PortalPage;
 use crate::portal_tab_id::PortalTabId;
 use crate::portal_tab_target::PortalTabTarget;
@@ -20,6 +21,7 @@ use cloud_terrastodon_auth_types::CloudTerrastodonAccountSession;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialRegistration;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
 use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_command::app_work::Loadable;
 use eframe::egui::CollapsingHeader;
 use eframe::egui::Context;
 use eframe::egui::Ui;
@@ -202,6 +204,17 @@ impl MyApp {
 
     pub(crate) fn show_accounts_page(&mut self, ui: &mut Ui) {
         let busy = self.account_operation.is_some();
+        let needs_helix_servers = self
+            .account_picker
+            .catalogue
+            .as_ref()
+            .is_ok_and(|catalogue| self.account_manager.needs_helix_servers(catalogue));
+        if needs_helix_servers {
+            if matches!(self.helix.servers, Loadable::NotLoaded) {
+                self.refresh_helix_catalogue();
+            }
+            self.helix.show_catalogue_error(ui);
+        }
         self.tenant_manager.load_catalogue_if_needed(
             &self.work_tracker,
             &self.executor,
@@ -209,9 +222,19 @@ impl MyApp {
             ui.ctx(),
         );
         let mut open_tenants = false;
+        let helix_servers = if needs_helix_servers {
+            loaded(
+                ui,
+                &self.helix.servers,
+                "Could not read saved Helix servers.",
+            )
+        } else {
+            None
+        };
         if let Some(action) = self.account_manager.show(
             ui,
             self.account_picker.catalogue.as_ref().ok(),
+            helix_servers,
             busy,
             self.tenant_manager.tracked_tenants(),
             &mut open_tenants,
@@ -307,7 +330,7 @@ impl MyApp {
                     .tab(origin.tab)
                     .is_some_and(|tab| tab.target().page() == PortalPage::Accounts) =>
             {
-                self.account_manager.open_account(new_account);
+                self.account_manager.open_newly_added_account(new_account);
             }
             Ok(Some(_)) => {}
             Ok(None) => {
@@ -369,6 +392,7 @@ impl MyApp {
         catalogue: Result<CloudTerrastodonAccountCatalogue, DiagnosticReport>,
         provider_closed: bool,
     ) {
+        self.helix.invalidate_accounts();
         // Wait for the previous provider's leases before admitting any work
         // against the new catalogue. Workers hold only the provider they used.
         if provider_closed {

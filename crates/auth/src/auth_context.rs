@@ -205,6 +205,10 @@ impl AuthContext {
             AuthenticationSelection::Gitea { .. } => {
                 bail!("this Entra/PAT context cannot admit a Gitea account");
             }
+            AuthenticationSelection::BmcHelix { .. }
+            | AuthenticationSelection::BmcHelixInnovationSuite { .. } => {
+                bail!("this Entra/PAT context cannot admit a BMC Helix account");
+            }
         }
     }
 

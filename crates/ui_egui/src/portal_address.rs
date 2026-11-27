@@ -4,6 +4,7 @@ use crate::entra_user_section::EntraUserSection;
 use crate::entra_user_subject::EntraUserSubject;
 use crate::portal_address_format::PortalAddressFormat;
 use crate::portal_azure_devops_organization_view::PortalAzureDevOpsOrganizationView;
+use crate::portal_helix_server_view::PortalHelixServerView;
 use crate::portal_omnibox::OMNIBOX_CONTENT_HEIGHT;
 use crate::portal_omnibox::portal_omnibox;
 use crate::portal_page::PortalPage;
@@ -54,6 +55,13 @@ use cloud_terrastodon_azure_devops_cli::AzureDevOpsEntraPermissionsArgs;
 use cloud_terrastodon_azure_devops_cli::license_entitlement::user::AzureDevOpsLicenseEntitlementUserListArgs;
 use cloud_terrastodon_azure_devops_cli::organization::AzureDevOpsOrganizationShowArgs;
 use cloud_terrastodon_azure_devops_cli::project::list::AzureDevOpsProjectListArgs;
+use cloud_terrastodon_bmc_helix::BmcHelixTicketListRequest;
+use cloud_terrastodon_bmc_helix::BmcHelixWorkOrderListRequest;
+use cloud_terrastodon_bmc_helix_cli::BmcHelixServerShowArgs;
+use cloud_terrastodon_bmc_helix_cli::BmcHelixTicketListArgs;
+use cloud_terrastodon_bmc_helix_cli::BmcHelixTicketShowArgs;
+use cloud_terrastodon_bmc_helix_cli::BmcHelixWorkOrderListArgs;
+use cloud_terrastodon_bmc_helix_cli::BmcHelixWorkOrderShowArgs;
 use cloud_terrastodon_cli_types::CloudTerrastodonAccountArgument;
 use eframe::egui::Align;
 use eframe::egui::Button;
@@ -425,6 +433,11 @@ impl PortalAddress {
                 _ => organization.expanded_form(),
             },
             PortalTabTarget::AzureDevOpsProject { project, .. } => project.to_string(),
+            PortalTabTarget::HelixServer { server, view } => match view {
+                PortalHelixServerView::WorkOrder(id) => id.to_string(),
+                PortalHelixServerView::Ticket(id) => id.to_string(),
+                _ => server.to_string(),
+            },
             PortalTabTarget::Page(_) => return None,
         })
     }
@@ -821,6 +834,75 @@ pub(crate) fn format_shell_command(mut command: String, args: &impl ToArgs) -> R
 }
 
 impl MyApp {
+    fn helix_cli_command(&self, target: &PortalTabTarget) -> Result<Option<String>> {
+        let PortalTabTarget::HelixServer { server, view } = target else {
+            return Ok(Some("ct helix server list".to_owned()));
+        };
+        let account = self.helix.server_url(server).and_then(|url| {
+            let catalogue = self.account_picker.catalogue.as_ref().ok()?;
+            let selected = self
+                .helix
+                .selected_account(self.tabs.active_id(), url, catalogue)?;
+            let alias = CloudTerrastodonAccountArgument::Alias(selected.alias.clone());
+            Some(
+                if catalogue
+                    .resolve_bmc_helix(url, Some(&alias))
+                    .is_ok_and(|resolved| resolved.id == selected.id)
+                {
+                    alias
+                } else {
+                    CloudTerrastodonAccountArgument::Id(selected.id)
+                },
+            )
+        });
+        let server = Some(server.clone());
+        match view {
+            PortalHelixServerView::Overview => format_shell_command(
+                "ct helix server show".to_owned(),
+                &BmcHelixServerShowArgs { name: server },
+            ),
+            PortalHelixServerView::WorkOrders => format_shell_command(
+                "ct helix work-order list".to_owned(),
+                &BmcHelixWorkOrderListArgs {
+                    server,
+                    account,
+                    filter: None,
+                    limit: BmcHelixWorkOrderListRequest::DEFAULT_LIMIT,
+                    no_cache: false,
+                },
+            ),
+            PortalHelixServerView::Tickets => format_shell_command(
+                "ct helix ticket list".to_owned(),
+                &BmcHelixTicketListArgs {
+                    server,
+                    account,
+                    limit: BmcHelixTicketListRequest::DEFAULT_LIMIT,
+                    no_cache: false,
+                },
+            ),
+            PortalHelixServerView::WorkOrder(id) => format_shell_command(
+                "ct helix work-order show".to_owned(),
+                &BmcHelixWorkOrderShowArgs {
+                    server,
+                    account,
+                    work_order_id: id.clone(),
+                    no_cache: false,
+                },
+            ),
+            PortalHelixServerView::Ticket(id) => format_shell_command(
+                "ct helix ticket show".to_owned(),
+                &BmcHelixTicketShowArgs {
+                    server,
+                    account,
+                    record_id: id.clone(),
+                    limit: BmcHelixTicketListRequest::DEFAULT_LIMIT,
+                    no_cache: false,
+                },
+            ),
+        }
+        .map(Some)
+    }
+
     fn portal_account_alias(
         &self,
         account_id: CloudTerrastodonAccountId,
@@ -846,6 +928,19 @@ impl MyApp {
             _ => Cow::Borrowed(target),
         };
         let target = resolved_target.as_ref();
+        if target.page() == PortalPage::HelixServers {
+            return PortalAddress {
+                target: target.clone(),
+                authentication: None,
+                devops_authentication: None,
+                account_alias: None,
+                devops_project_name: None,
+                cli_command: self.helix_cli_command(target),
+                identifier: PortalAddress::identifier(target),
+                azure_portal_url: None,
+            }
+            .show(ui, &mut self.azure.resource_search, focus_search);
+        }
         if *target == PortalTabTarget::Page(PortalPage::Accounts) {
             return PortalAddress {
                 target: target.clone(),

@@ -21,12 +21,19 @@ impl CloudTerrastodonAccountSecretStore {
     }
 
     pub(crate) fn read(&self) -> Result<String> {
+        self.read_if_present()?
+            .ok_or_else(|| eyre::eyre!("the selected account has no stored credential"))
+    }
+
+    pub(crate) fn read_if_present(&self) -> Result<Option<String>> {
         #[cfg(windows)]
-        return crate::read_credential_from_manager(&self.target()?)?
-            .ok_or_else(|| eyre::eyre!("the selected account has no stored credential"));
+        return crate::read_credential_from_manager(&self.target()?);
         #[cfg(not(windows))]
-        std::fs::read_to_string(self.directory.join("credential"))
-            .wrap_err("reading the selected account credential")
+        match std::fs::read_to_string(self.directory.join("credential")) {
+            Ok(value) => Ok(Some(value)),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(error).wrap_err("reading the selected account credential"),
+        }
     }
 
     pub(crate) fn write(&self, value: &str) -> Result<()> {

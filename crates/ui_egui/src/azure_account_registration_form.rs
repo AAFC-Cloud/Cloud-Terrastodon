@@ -26,6 +26,7 @@ pub(crate) struct AzureAccountRegistrationForm {
     instance: String,
     tea_login: String,
     tea_configuration: String,
+    helix_username: String,
 }
 
 impl Default for AzureAccountRegistrationForm {
@@ -40,11 +41,19 @@ impl Default for AzureAccountRegistrationForm {
             instance: String::new(),
             tea_login: String::new(),
             tea_configuration: String::new(),
+            helix_username: String::new(),
         }
     }
 }
 
 impl AzureAccountRegistrationForm {
+    pub fn for_helix() -> Self {
+        Self {
+            source: CloudTerrastodonCredentialSource::BmcHelix,
+            ..Self::default()
+        }
+    }
+
     pub fn show(
         &mut self,
         ui: &mut Ui,
@@ -65,6 +74,7 @@ impl AzureAccountRegistrationForm {
                     CloudTerrastodonCredentialSource::WorkloadIdentity,
                     CloudTerrastodonCredentialSource::PersonalAccessToken,
                     CloudTerrastodonCredentialSource::Gitea,
+                    CloudTerrastodonCredentialSource::BmcHelix,
                 ] {
                     ui.selectable_value(
                         &mut self.source,
@@ -128,6 +138,9 @@ impl AzureAccountRegistrationForm {
                     &mut self.tea_configuration,
                 );
             }
+            CloudTerrastodonCredentialSource::BmcHelix => {
+                text_input(ui, "Username", &mut self.helix_username);
+            }
         }
         if ui.button("Register account").clicked() {
             self.action().map(Some)
@@ -173,6 +186,16 @@ impl AzureAccountRegistrationForm {
                         .wrap_err("Enter a tea configuration file path")?,
                 })
             }
+            CloudTerrastodonCredentialSource::BmcHelix => {
+                AzureAccountRegistration::Service(CloudTerrastodonAccountCredential::BmcHelix {
+                    server: None,
+                    username: self
+                        .helix_username
+                        .trim()
+                        .parse()
+                        .wrap_err("Enter a valid Helix username")?,
+                })
+            }
         };
         Ok(AzureAccountAction::Add {
             alias,
@@ -208,6 +231,7 @@ pub(crate) fn source_label(source: CloudTerrastodonCredentialSource) -> &'static
         CloudTerrastodonCredentialSource::WorkloadIdentity => "Workload identity",
         CloudTerrastodonCredentialSource::PersonalAccessToken => "Azure DevOps PAT",
         CloudTerrastodonCredentialSource::Gitea => "Gitea (tea)",
+        CloudTerrastodonCredentialSource::BmcHelix => "BMC Helix",
     }
 }
 

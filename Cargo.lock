@@ -873,6 +873,9 @@ dependencies = [
  "cloud_terrastodon_azure_devops_types",
  "cloud_terrastodon_azure_resource_types",
  "cloud_terrastodon_azure_types",
+ "cloud_terrastodon_bmc_helix",
+ "cloud_terrastodon_bmc_helix_cli",
+ "cloud_terrastodon_bmc_helix_types",
  "cloud_terrastodon_cli_types",
  "cloud_terrastodon_command",
  "cloud_terrastodon_config",
@@ -937,6 +940,8 @@ dependencies = [
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure_devops_types",
  "cloud_terrastodon_azure_types",
+ "cloud_terrastodon_bmc_helix",
+ "cloud_terrastodon_bmc_helix_types",
  "cloud_terrastodon_cache",
  "cloud_terrastodon_command",
  "cloud_terrastodon_execution",
@@ -955,6 +960,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "url",
  "uuid",
  "webbrowser",
  "windows 0.62.2",
@@ -986,6 +992,7 @@ dependencies = [
  "base64 0.22.1",
  "cloud_terrastodon_azure_devops_types",
  "cloud_terrastodon_azure_types",
+ "cloud_terrastodon_bmc_helix_types",
  "cloud_terrastodon_registry",
  "eyre",
  "http",
@@ -1206,6 +1213,62 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloud_terrastodon_bmc_helix"
+version = "0.38.0"
+dependencies = [
+ "arbitrary",
+ "cloud_terrastodon_auth_types",
+ "cloud_terrastodon_bmc_helix_types",
+ "cloud_terrastodon_cache",
+ "cloud_terrastodon_execution",
+ "cloud_terrastodon_pathing",
+ "cloud_terrastodon_registry",
+ "cloud_terrastodon_registry_execution",
+ "cloud_terrastodon_rest",
+ "eyre",
+ "http",
+ "linkme",
+ "teamy-facet",
+ "teamy-facet-json",
+ "teamy-facet-value",
+ "tempfile",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "cloud_terrastodon_bmc_helix_cli"
+version = "0.38.0"
+dependencies = [
+ "cloud_terrastodon_app",
+ "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_types",
+ "cloud_terrastodon_bmc_helix",
+ "cloud_terrastodon_bmc_helix_types",
+ "cloud_terrastodon_command",
+ "cloud_terrastodon_execution",
+ "eyre",
+ "teamy-facet",
+ "teamy-figue",
+]
+
+[[package]]
+name = "cloud_terrastodon_bmc_helix_types"
+version = "0.38.0"
+dependencies = [
+ "arbitrary",
+ "cloud_terrastodon_azure_types",
+ "cloud_terrastodon_registry",
+ "eyre",
+ "jiff",
+ "linkme",
+ "sha2 0.10.9",
+ "teamy-facet",
+ "teamy-facet-json",
+ "url",
+]
+
+[[package]]
 name = "cloud_terrastodon_cache"
 version = "0.38.0"
 dependencies = [
@@ -1308,6 +1371,9 @@ dependencies = [
  "cloud_terrastodon_azure_cli",
  "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_azure_devops_cli",
+ "cloud_terrastodon_bmc_helix",
+ "cloud_terrastodon_bmc_helix_cli",
+ "cloud_terrastodon_bmc_helix_types",
  "cloud_terrastodon_cache",
  "cloud_terrastodon_cli_types",
  "cloud_terrastodon_command",
@@ -1330,6 +1396,7 @@ dependencies = [
  "compact_str",
  "crossterm",
  "eyre",
+ "futures",
  "hickory-resolver",
  "http",
  "humantime",
@@ -1390,6 +1457,7 @@ dependencies = [
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure_devops_types",
  "cloud_terrastodon_azure_types",
+ "cloud_terrastodon_bmc_helix_types",
  "cloud_terrastodon_cache",
  "cloud_terrastodon_execution",
  "eyre",
@@ -1719,6 +1787,9 @@ dependencies = [
  "cloud_terrastodon_azure_cli",
  "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_azure_devops_cli",
+ "cloud_terrastodon_bmc_helix",
+ "cloud_terrastodon_bmc_helix_cli",
+ "cloud_terrastodon_bmc_helix_types",
  "cloud_terrastodon_cache",
  "cloud_terrastodon_cli_types",
  "cloud_terrastodon_command",

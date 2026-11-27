@@ -23,6 +23,9 @@ use std::borrow::Cow;
 
 pub const DEVOPS_ICON: ImageSource = i!("../assets/10261-icon-service-Azure-DevOps-4x.png");
 pub const DEVOPS_PROJECT_ICON: ImageSource = i!("../assets/devops-projects.svg");
+pub(crate) const HELIX_ICON: ImageSource = i!("../assets/bmc-helix.svg");
+pub(crate) const HELIX_WORK_ORDER_ICON: ImageSource = i!("../assets/selected-items.svg");
+pub(crate) const HELIX_TICKETS_ICON: ImageSource = i!("../assets/devops-work-items.svg");
 pub const SUBSCRIPTION_ICON: ImageSource = i!("../assets/10002-icon-service-Subscriptions-4x.png");
 pub const RESOURCE_GROUP_ICON: ImageSource =
     i!("../assets/10007-icon-service-Resource-Groups-4x.png");
@@ -102,6 +105,7 @@ pub(crate) fn portal_target_icon_in(
             view: PortalAzureDevOpsOrganizationView::Users,
             ..
         } => page_icon(PortalPage::EntraUsers),
+        PortalTabTarget::HelixServer { view, .. } => view.icon(),
         PortalTabTarget::EntraGroupSection { section, .. } => section.icon(),
         PortalTabTarget::EntraUserSection { section, .. } => section.icon(),
         target => page_icon(target.page()),
@@ -127,6 +131,7 @@ pub fn page_icon(page: PortalPage) -> ImageSource<'static> {
         PortalPage::EntraGroups => i!("../assets/entra-group.svg"),
         PortalPage::EntraAppRegistrations => i!("../assets/entra-app-registrations.svg"),
         PortalPage::AzureDevOpsOrganizations => DEVOPS_ICON,
+        PortalPage::HelixServers => HELIX_ICON,
         PortalPage::Accounts => i!("../assets/starting-points.svg"),
         PortalPage::AzureTenants => svg_source(&AzureManagementGroupIcon),
         PortalPage::StartingPoints => i!("../assets/starting-points.svg"),

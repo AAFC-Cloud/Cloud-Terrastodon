@@ -2,6 +2,7 @@ use crate::AzureBearerAuthenticationSelection;
 use crate::AzureDevOpsAuthSelection;
 use crate::CloudTerrastodonAccountId;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerId;
 use facet::Facet;
 
 /// Non-secret authentication intent admitted by an execution provider.
@@ -21,6 +22,14 @@ pub enum AuthenticationSelection {
     Gitea {
         account_id: CloudTerrastodonAccountId,
     },
+    BmcHelix {
+        account_id: CloudTerrastodonAccountId,
+        server_id: BmcHelixServerId,
+    },
+    BmcHelixInnovationSuite {
+        account_id: CloudTerrastodonAccountId,
+        server_id: BmcHelixServerId,
+    },
 }
 
 impl From<AzureDevOpsAuthSelection> for AuthenticationSelection {
@@ -39,9 +48,24 @@ impl AuthenticationSelection {
         match self {
             Self::Anonymous => None,
             Self::AzureBearer(selection) => Some(selection.account_id),
-            Self::AzureDevOpsPersonalAccessToken { account_id } | Self::Gitea { account_id } => {
-                Some(account_id)
+            Self::AzureDevOpsPersonalAccessToken { account_id }
+            | Self::Gitea { account_id }
+            | Self::BmcHelix { account_id, .. }
+            | Self::BmcHelixInnovationSuite { account_id, .. } => Some(account_id),
+        }
+    }
+
+    pub const fn bmc_helix_session(self) -> Option<(CloudTerrastodonAccountId, BmcHelixServerId)> {
+        match self {
+            Self::BmcHelix {
+                account_id,
+                server_id,
             }
+            | Self::BmcHelixInnovationSuite {
+                account_id,
+                server_id,
+            } => Some((account_id, server_id)),
+            _ => None,
         }
     }
 }

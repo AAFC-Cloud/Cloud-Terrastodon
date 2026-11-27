@@ -388,11 +388,17 @@ impl MyApp {
     }
 
     pub(crate) fn portal_tab_title<'a>(&'a self, target: &'a PortalTabTarget) -> Cow<'a, str> {
+        if let Some(display_id) = self.helix_ticket_display_id(self.tabs.active_id(), target) {
+            return Cow::Borrowed(display_id);
+        }
         self.portal_tab_title_in(&self.azure, target)
     }
 
     fn tab_rail_title<'a>(&'a self, tab: &'a PortalTab) -> Cow<'a, str> {
         let target = tab.target();
+        if let Some(display_id) = self.helix_ticket_display_id(tab.id, target) {
+            return Cow::Borrowed(display_id);
+        }
         self.azure_content_for_tab(tab.id).map_or_else(
             || target.title(),
             |azure| self.portal_tab_title_in(azure, target),

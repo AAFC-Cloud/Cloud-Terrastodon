@@ -3,12 +3,16 @@ use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerId;
 
 /// The independently initialized and revocable mechanism selected by a request.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub(crate) struct CloudTerrastodonCredentialIdentity {
     pub(crate) account_id: CloudTerrastodonAccountId,
     pub(crate) source: CloudTerrastodonCredentialSource,
+    /// A Helix session is admitted for a particular server. For retirement
+    /// records, absence identifies all sessions for the selected source.
+    pub(crate) server_id: Option<BmcHelixServerId>,
 }
 
 impl CloudTerrastodonCredentialIdentity {
@@ -32,8 +36,21 @@ impl CloudTerrastodonCredentialIdentity {
             AuthenticationSelection::Gitea { account_id } => {
                 (account_id, CloudTerrastodonCredentialSource::Gitea)
             }
+            AuthenticationSelection::BmcHelix { .. }
+            | AuthenticationSelection::BmcHelixInnovationSuite { .. } => {
+                let (account_id, server_id) = selection.bmc_helix_session()?;
+                return Some(Self {
+                    account_id,
+                    source: CloudTerrastodonCredentialSource::BmcHelix,
+                    server_id: Some(server_id),
+                });
+            }
         };
-        Some(Self { account_id, source })
+        Some(Self {
+            account_id,
+            source,
+            server_id: None,
+        })
     }
 
     pub(crate) fn for_context(
@@ -43,6 +60,7 @@ impl CloudTerrastodonCredentialIdentity {
         Ok(Self {
             account_id,
             source: source.try_into()?,
+            server_id: None,
         })
     }
 }

@@ -38,6 +38,7 @@ pub enum PortalPage {
     Pim,
     PimEntraRoles,
     PimAzureResources,
+    HelixServers,
     EntraMyUser,
 }
 
@@ -75,6 +76,7 @@ impl PortalPage {
             Self::Pim => "Privileged Identity Management",
             Self::PimEntraRoles => "Microsoft Entra roles",
             Self::PimAzureResources => "Azure resources",
+            Self::HelixServers => "Helix servers",
         }
     }
 

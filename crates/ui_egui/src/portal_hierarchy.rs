@@ -2,6 +2,7 @@ use crate::app::MyApp;
 use crate::portal_azure_content::PortalAzureContent;
 use crate::portal_azure_devops_organization_view::PortalAzureDevOpsOrganizationView;
 use crate::portal_azure_devops_project_view::PortalAzureDevOpsProjectView;
+use crate::portal_helix_server_view::PortalHelixServerView;
 use crate::portal_page::PortalPage;
 use crate::portal_resource_output_target::PortalResourceOutputTarget;
 use crate::portal_resource_scope::PortalResourceScope;
@@ -179,6 +180,26 @@ fn hierarchy_from_ancestors(
         return hierarchy;
     }
     let page = target.page();
+    if page == PortalPage::HelixServers {
+        let mut hierarchy = vec![PortalTabTarget::Page(PortalPage::Home)];
+        if let PortalTabTarget::HelixServer { server, view } = target {
+            hierarchy.push(PortalTabTarget::Page(PortalPage::HelixServers));
+            if *view != PortalHelixServerView::Overview {
+                hierarchy.push(PortalHelixServerView::Overview.target(server));
+            }
+            match view {
+                PortalHelixServerView::WorkOrder(_) => {
+                    hierarchy.push(PortalHelixServerView::WorkOrders.target(server));
+                }
+                PortalHelixServerView::Ticket(_) => {
+                    hierarchy.push(PortalHelixServerView::Tickets.target(server));
+                }
+                _ => {}
+            }
+        }
+        hierarchy.push(target.clone());
+        return hierarchy;
+    }
     let section = if page.is_audit_section() {
         Some(PortalPage::Auditing)
     } else if page.is_pim_section() {

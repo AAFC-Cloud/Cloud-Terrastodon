@@ -12,6 +12,7 @@
 //!   `azure-devops`, `azure-devops-types`, `hcl`, `hcl-types`, `user-input`,
 //!   `command`, `software`, `zombies`, `relative-location`, `ui-ratatui`, `ui-egui`,
 //!   `azure-locations`, `auth`, `auth-types`, `execution`, `rest`, `source`, `source-types`.
+//! - `bmc-helix`, `bmc-helix-types`, `bmc-helix-cli`: BMC Helix SDK, models, and commands.
 //! - `azure-cli`, `azure-devops-cli`, `source-cli`, `auth-cli`, `cli-types`: Reusable command
 //!   groups and shared command-line input contracts.
 
@@ -38,6 +39,12 @@ pub use cloud_terrastodon_azure_devops_types as azure_devops_types;
 pub use cloud_terrastodon_azure_resource_types as azure_resource_types;
 #[cfg(feature = "azure-types")]
 pub use cloud_terrastodon_azure_types as azure_types;
+#[cfg(feature = "bmc-helix")]
+pub use cloud_terrastodon_bmc_helix as bmc_helix;
+#[cfg(feature = "bmc-helix-cli")]
+pub use cloud_terrastodon_bmc_helix_cli as bmc_helix_cli;
+#[cfg(feature = "bmc-helix-types")]
+pub use cloud_terrastodon_bmc_helix_types as bmc_helix_types;
 #[cfg(feature = "cli-types")]
 pub use cloud_terrastodon_cli_types as cli_types;
 #[cfg(feature = "command")]

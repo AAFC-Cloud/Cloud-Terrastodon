@@ -76,7 +76,7 @@ impl MyApp {
             }
             PortalTabAction::OpenBelow(tab) => {
                 self.tabs.new_tab_below(tab);
-                self.seed_azure_content(self.tabs.active_id(), tab);
+                self.seed_tab_content(self.tabs.active_id(), tab);
                 self.record_portal_visit();
             }
             PortalTabAction::OpenInGroup(group) => {
@@ -86,7 +86,7 @@ impl MyApp {
                     .and_then(|pane| self.tabs.pane_active(pane))
                     .unwrap_or_else(|| self.tabs.active_id());
                 self.tabs.open_in_group(group);
-                self.seed_azure_content(self.tabs.active_id(), source);
+                self.seed_tab_content(self.tabs.active_id(), source);
                 self.record_portal_visit();
             }
             PortalTabAction::Select(tab, modifiers) => self.tabs.select_from_rail(tab, modifiers),
@@ -117,7 +117,7 @@ impl MyApp {
             }
             PortalTabAction::Duplicate(tab) => {
                 self.tabs.duplicate(tab);
-                self.seed_azure_content(self.tabs.active_id(), tab);
+                self.seed_tab_content(self.tabs.active_id(), tab);
             }
             PortalTabAction::Close(tab) => {
                 if let Some(target) = self

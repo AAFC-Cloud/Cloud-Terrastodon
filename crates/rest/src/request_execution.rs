@@ -13,6 +13,8 @@ use reqwest::Response;
 use reqwest::Url;
 use reqwest::header::AUTHORIZATION;
 use reqwest::header::CONTENT_TYPE;
+use reqwest::header::COOKIE;
+use reqwest::header::SET_COOKIE;
 use reqwest::tls::Version;
 use std::time::Duration;
 use tracing::debug;
@@ -49,15 +51,34 @@ pub async fn execute_rest_request(
         | (
             RestService::AzureDevOps,
             AuthenticationSelection::AzureDevOpsPersonalAccessToken { .. },
+        )
+        | (RestService::BmcHelix, AuthenticationSelection::BmcHelix { .. })
+        | (
+            RestService::BmcHelixInnovationSuite,
+            AuthenticationSelection::BmcHelixInnovationSuite { .. },
         ) => {}
         (RestService::AzureRetailPrices, _) => {
             eyre::bail!("the public retail-price service requires anonymous authentication");
+        }
+        (RestService::BmcHelix | RestService::BmcHelixInnovationSuite, _) => {
+            eyre::bail!("Helix requests require an explicitly selected Helix account");
         }
         (_, AuthenticationSelection::AzureBearer(AzureBearerAuthenticationSelection { .. })) => {}
         _ => {
             eyre::bail!("the selected authentication cannot authorize this REST service");
         }
     }
+    ensure!(
+        !matches!(
+            service,
+            RestService::BmcHelix | RestService::BmcHelixInnovationSuite
+        ) || url.scheme() == "https",
+        "Helix requests require HTTPS"
+    );
+    ensure!(
+        service != RestService::BmcHelixInnovationSuite || url.path().starts_with("/api/rx/"),
+        "Innovation Suite authorization requires an Innovation Suite API route"
+    );
     // Public lower-level callers retain admission before HTTP contact, including
     // the unauthenticated request which obtains an ACR challenge.
     executor.admit(selection)?;
@@ -79,7 +100,8 @@ pub async fn execute_rest_request(
         .transpose()?
         .unwrap_or_default();
     ensure!(
-        !headers.contains_key(AUTHORIZATION),
+        !headers.contains_key(AUTHORIZATION)
+            && (service != RestService::BmcHelixInnovationSuite || !headers.contains_key(COOKIE)),
         "REST authorization must come from the executor's selected credential provider"
     );
     executor.cancellable_scope(|child| async move {
@@ -92,11 +114,15 @@ pub async fn execute_rest_request(
             RestService::AzureContainerRegistry => {
                 eyre::bail!("Container Registry requires its challenge exchange");
             }
+            RestService::BmcHelix | RestService::BmcHelixInnovationSuite => {
+                child.bmc_helix_authorization(selection, &url)?
+            }
         };
         ensure!(matches!((selection, &authorization),
             (AuthenticationSelection::Anonymous, Authorization::Anonymous)
             | (AuthenticationSelection::AzureBearer(AzureBearerAuthenticationSelection {.. }), Authorization::Bearer(_))
-            | (AuthenticationSelection::AzureDevOpsPersonalAccessToken { .. }, Authorization::PersonalAccessToken(_))),
+            | (AuthenticationSelection::AzureDevOpsPersonalAccessToken { .. }, Authorization::PersonalAccessToken(_))
+            | (AuthenticationSelection::BmcHelix { .. } | AuthenticationSelection::BmcHelixInnovationSuite { .. }, Authorization::BmcHelix(_))),
             "the credential provider returned authorization inconsistent with the request selection");
         child.cancellation().bail_if_cancelled()?;
         debug!(?method, %url, ?service, network_request = true, "Executing REST request");
@@ -111,13 +137,21 @@ pub async fn execute_rest_request(
         if let Some(header) = authorization.header() {
             request = request.header(AUTHORIZATION, header);
         }
+        if service == RestService::BmcHelixInnovationSuite {
+            request = request.header("Suppress-Token-Refresh", "true");
+        }
         if let Some(body) = body {
             if !has_content_type {
                 request = request.header(CONTENT_TYPE, "application/json");
             }
             request = request.body(body);
         }
-        Ok(request.send().await?)
+        let mut response = request.send().await?;
+        if service == RestService::BmcHelixInnovationSuite {
+            // Response headers are retained in REST diagnostics and artifacts.
+            response.headers_mut().remove(SET_COOKIE);
+        }
+        Ok(response)
     }).await
 }
 

@@ -16,6 +16,7 @@ use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
+use cloud_terrastodon_auth_types::BmcHelixAuthorization;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountArgument;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountNamespace;
@@ -25,6 +26,10 @@ use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
 use cloud_terrastodon_auth_types::ContainerRegistryBearerChallenge;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_bmc_helix::BmcHelixServerCatalog;
+use cloud_terrastodon_bmc_helix::BmcHelixServerStore;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerId;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerUrl;
 use cloud_terrastodon_cache::AuthPartition;
 use cloud_terrastodon_cache::WorkCache;
 use cloud_terrastodon_command::CancellationScope;
@@ -150,6 +155,7 @@ impl CredentialAuthenticationProvider {
         let key = CloudTerrastodonCredentialIdentity {
             account_id,
             source: CloudTerrastodonCredentialSource::Gitea,
+            server_id: None,
         };
         let entry = Arc::new(CloudTerrastodonAccountBinding {
             admission: Arc::new(CloudTerrastodonAccountAdmission::new()),
@@ -169,6 +175,35 @@ impl CredentialAuthenticationProvider {
         })
     }
 
+    pub(crate) fn for_bmc_helix(
+        account_id: CloudTerrastodonAccountId,
+        server: BmcHelixServerUrl,
+        authorization: BmcHelixAuthorization,
+        generation: Uuid,
+    ) -> Self {
+        let key = CloudTerrastodonCredentialIdentity {
+            account_id,
+            source: CloudTerrastodonCredentialSource::BmcHelix,
+            server_id: Some(server.id()),
+        };
+        let entry = Arc::new(CloudTerrastodonAccountBinding {
+            admission: Arc::new(CloudTerrastodonAccountAdmission::new()),
+            authentication: CloudTerrastodonAccountAuthentication::BmcHelix {
+                server,
+                authorization,
+                generation,
+            },
+            profile: None,
+        });
+        Self {
+            accounts: Arc::new(Mutex::new(CloudTerrastodonAccountBindings {
+                entries: HashMap::from([(key, entry)]),
+                ..Default::default()
+            })),
+            ..Self::default()
+        }
+    }
+
     fn entry(
         &self,
         selection: &AuthenticationSelection,
@@ -184,14 +219,20 @@ impl CredentialAuthenticationProvider {
             "account {} is retired; new execution is forbidden",
             key.account_id
         );
-        ensure!(
-            !self
+        {
+            let retired_sources = self
                 .retired_sources
                 .lock()
-                .map_err(|_| eyre::eyre!("credential retirement map poisoned"))?
-                .contains(&key),
-            "the selected account mechanism is retired; new execution is forbidden"
-        );
+                .map_err(|_| eyre::eyre!("credential retirement map poisoned"))?;
+            ensure!(
+                !retired_sources.contains(&key)
+                    && !retired_sources.contains(&CloudTerrastodonCredentialIdentity {
+                        server_id: None,
+                        ..key
+                    }),
+                "the selected account mechanism is retired; new execution is forbidden"
+            );
+        }
         let mut accounts = self
             .accounts
             .lock()
@@ -204,11 +245,24 @@ impl CredentialAuthenticationProvider {
             if let (Some(store), Some(captured)) = (&self.store, &entry.profile) {
                 let catalogue = store.load()?;
                 let current = catalogue.by_id(key.account_id)?;
+                let current_registration = current.registration(key.source)?;
+                let captured_registration = captured.registration(key.source)?;
+                let session_matches = match &entry.authentication {
+                    CloudTerrastodonAccountAuthentication::BmcHelix {
+                        server, generation, ..
+                    } => {
+                        catalogue.bmc_helix_session(key.account_id, server)
+                            == CloudTerrastodonAccountSession::Active {
+                                generation: *generation,
+                            }
+                    }
+                    _ => current_registration.session == captured_registration.session,
+                };
                 ensure!(
                     current.namespace == captured.namespace
                         && current.principal == captured.principal
-                        && current.registration(key.source)?
-                            == captured.registration(key.source)?,
+                        && current_registration.credential == captured_registration.credential
+                        && session_matches,
                     "the selected account credential changed or retired; reload the current account session before retrying"
                 );
             }
@@ -234,7 +288,10 @@ impl CredentialAuthenticationProvider {
         // Only local credential loading occurs under this lock, never network
         // authorization. The single publication preserves token caches and the
         // admission owner across concurrent callers and independently cloned handles.
-        let provider = store.provider_for(profile, key.source)?;
+        let provider = match key.server_id {
+            Some(server_id) => store.provider_for_bmc_helix(profile, server_id)?,
+            None => store.provider_for(profile, key.source)?,
+        };
         let entry = provider
             .accounts
             .lock()
@@ -386,7 +443,7 @@ impl CredentialAuthenticationProvider {
         cache: &WorkCache,
         cancellation: &CancellationScope,
     ) -> Result<()> {
-        self.retire_mechanisms(account_id, None, cache, cancellation)
+        self.retire_mechanisms(account_id, None, None, cache, cancellation)
             .await
     }
 
@@ -398,24 +455,54 @@ impl CredentialAuthenticationProvider {
         cache: &WorkCache,
         cancellation: &CancellationScope,
     ) -> Result<()> {
-        self.retire_mechanisms(account_id, Some(source), cache, cancellation)
+        self.retire_mechanisms(account_id, Some(source), None, cache, cancellation)
             .await
     }
 
-    fn stored_azure_partition(
+    fn stored_account_partitions(
         &self,
         account_id: CloudTerrastodonAccountId,
         source: Option<CloudTerrastodonCredentialSource>,
-    ) -> Result<Option<AuthPartition>> {
+        server_id: Option<BmcHelixServerId>,
+    ) -> Result<Vec<AuthPartition>> {
         let Some(store) = &self.store else {
-            return Ok(None);
+            return Ok(Vec::new());
         };
         let catalogue = store.load()?;
-        if let Some(profile) = catalogue
+        let Some(profile) = catalogue
             .accounts
             .iter()
             .find(|profile| profile.id == account_id)
-            && let CloudTerrastodonAccountNamespace::Entra { tenant_id } = profile.namespace
+        else {
+            return Ok(Vec::new());
+        };
+        if matches!(
+            profile.namespace,
+            CloudTerrastodonAccountNamespace::BmcHelix { .. }
+        ) && source.is_none_or(|source| source == CloudTerrastodonCredentialSource::BmcHelix)
+        {
+            return catalogue
+                .bmc_helix_sessions
+                .iter()
+                .filter(|session| session.account_id == account_id)
+                .filter_map(|session| {
+                    let id = session.server.id();
+                    if server_id.is_some_and(|selected| selected != id) {
+                        return None;
+                    }
+                    match session.session {
+                        CloudTerrastodonAccountSession::Active { generation }
+                        | CloudTerrastodonAccountSession::Retired { generation } => {
+                            Some(CloudTerrastodonAccountAuthentication::bmc_helix_partition(
+                                account_id, id, generation,
+                            ))
+                        }
+                        _ => None,
+                    }
+                })
+                .collect();
+        }
+        if let CloudTerrastodonAccountNamespace::Entra { tenant_id } = profile.namespace
             && profile.credentials.iter().any(|registration| {
                 let registered_source = registration.credential.source();
                 matches!(
@@ -425,26 +512,32 @@ impl CredentialAuthenticationProvider {
                 ) && source.is_none_or(|source| source == registered_source)
             })
         {
-            return azure_account_cache_partition(account_id, tenant_id).map(Some);
+            return Ok(vec![azure_account_cache_partition(account_id, tenant_id)?]);
         }
-        Ok(None)
+        Ok(Vec::new())
     }
 
     async fn retire_mechanisms(
         &self,
         account_id: CloudTerrastodonAccountId,
         source: Option<CloudTerrastodonCredentialSource>,
+        server_id: Option<BmcHelixServerId>,
         cache: &WorkCache,
         cancellation: &CancellationScope,
     ) -> Result<()> {
+        let selected = |key: &CloudTerrastodonCredentialIdentity| {
+            key.account_id == account_id
+                && source.is_none_or(|source| key.source == source)
+                && server_id.is_none_or(|server_id| key.server_id == Some(server_id))
+        };
         ensure!(
-            !self.leases.keys().any(|key| key.account_id == account_id
-                && source.is_none_or(|source| key.source == source)),
+            !self.leases.keys().any(selected),
             "an operation cannot retire the account lease it currently owns"
         );
         cancellation
             .deferred("retiring admitted account work", async |protected| {
-                let persistent_partition = self.stored_azure_partition(account_id, source)?;
+                let persistent_partitions =
+                    self.stored_account_partitions(account_id, source, server_id)?;
                 let mut partitions = HashSet::new();
                 let entries = {
                     let mut retired = self
@@ -455,7 +548,11 @@ impl CredentialAuthenticationProvider {
                         self.retired_sources
                             .lock()
                             .map_err(|_| eyre::eyre!("credential retirement map poisoned"))?
-                            .insert(CloudTerrastodonCredentialIdentity { account_id, source });
+                            .insert(CloudTerrastodonCredentialIdentity {
+                                account_id,
+                                source,
+                                server_id,
+                            });
                     } else {
                         retired.insert(account_id);
                     }
@@ -466,10 +563,7 @@ impl CredentialAuthenticationProvider {
                     let entries = accounts
                         .entries
                         .iter()
-                        .filter(|(key, _)| {
-                            key.account_id == account_id
-                                && source.is_none_or(|source| key.source == source)
-                        })
+                        .filter(|(key, _)| selected(key))
                         .map(|(_, entry)| entry.clone())
                         .collect::<Vec<_>>();
                     for entry in &entries {
@@ -524,7 +618,7 @@ impl CredentialAuthenticationProvider {
                 }
                 // This applies even when the current process never admitted the
                 // account, such as a fresh CLI invocation of account logout.
-                partitions.extend(persistent_partition);
+                partitions.extend(persistent_partitions);
                 for partition in &partitions {
                     if let Err(error) = cache.invalidate_authentication(partition, &protected).await
                     {
@@ -548,7 +642,23 @@ impl AuthenticationProvider for CredentialAuthenticationProvider {
         cache: &'a WorkCache,
         cancellation: &'a CancellationScope,
     ) -> ExecutionFuture<'a, ()> {
-        Box::pin(self.retire_mechanisms(account_id, source, cache, cancellation))
+        Box::pin(self.retire_mechanisms(account_id, source, None, cache, cancellation))
+    }
+
+    fn retire_bmc_helix_session<'a>(
+        &'a self,
+        account_id: CloudTerrastodonAccountId,
+        server_id: BmcHelixServerId,
+        cache: &'a WorkCache,
+        cancellation: &'a CancellationScope,
+    ) -> ExecutionFuture<'a, ()> {
+        Box::pin(self.retire_mechanisms(
+            account_id,
+            Some(CloudTerrastodonCredentialSource::BmcHelix),
+            Some(server_id),
+            cache,
+            cancellation,
+        ))
     }
 
     fn resolve_azure_authentication(
@@ -616,6 +726,10 @@ impl AuthenticationProvider for CredentialAuthenticationProvider {
     }
     fn validate_target(&self, selection: &AuthenticationSelection, target: &Url) -> Result<()> {
         self.admit(selection)?;
+        if selection.bmc_helix_session().is_some() {
+            self.bmc_helix_authorization(selection, target)?;
+            return Ok(());
+        }
         if !matches!(
             selection,
             AuthenticationSelection::AzureDevOpsPersonalAccessToken { .. }
@@ -684,6 +798,22 @@ impl AuthenticationProvider for CredentialAuthenticationProvider {
     }
 
     fn validate_cache_reuse(&self, selection: &AuthenticationSelection) -> Result<()> {
+        if let Some((account_id, _)) = selection.bmc_helix_session()
+            && let Some(store) = &self.store
+        {
+            let CloudTerrastodonAccountAuthentication::BmcHelix {
+                server, generation, ..
+            } = self.binding(selection)?
+            else {
+                eyre::bail!("Helix authorization requires a captured account binding");
+            };
+            let catalogue = store.load()?;
+            ensure!(
+                catalogue.bmc_helix_session(account_id, &server)
+                    == CloudTerrastodonAccountSession::Active { generation },
+                "the selected Helix session changed or retired while waiting for cache ownership"
+            );
+        }
         if let AuthenticationSelection::AzureBearer(azure) = selection
             && matches!(
                 azure.auth_source,
@@ -784,7 +914,7 @@ impl AuthenticationProvider for CredentialAuthenticationProvider {
             let CloudTerrastodonAccountAuthentication::Azure(context) =
                 retained.binding(selection)?
             else {
-                eyre::bail!("tea accounts cannot authorize Azure HTTP requests");
+                eyre::bail!("this account cannot authorize Azure HTTP requests");
             };
             match *selection {
                 AuthenticationSelection::AzureBearer(AzureBearerAuthenticationSelection {
@@ -818,6 +948,31 @@ impl AuthenticationProvider for CredentialAuthenticationProvider {
             }
         })
     }
+
+    fn bmc_helix_authorization(
+        &self,
+        selection: &AuthenticationSelection,
+        target: &Url,
+    ) -> Result<Authorization> {
+        let CloudTerrastodonAccountAuthentication::BmcHelix {
+            server,
+            authorization,
+            ..
+        } = self.binding(selection)?
+        else {
+            eyre::bail!("Helix authorization requires a captured account binding");
+        };
+        let catalogue = if matches!(
+            selection,
+            AuthenticationSelection::BmcHelixInnovationSuite { .. }
+        ) {
+            Some(BmcHelixServerStore::configured().load()?)
+        } else {
+            None
+        };
+        validate_bmc_helix_target(selection, &server, catalogue.as_ref(), target)?;
+        Ok(Authorization::BmcHelix(authorization))
+    }
     fn container_registry_authorization<'a>(
         &'a self,
         selection: &'a AuthenticationSelection,
@@ -849,9 +1004,197 @@ impl AuthenticationProvider for CredentialAuthenticationProvider {
     }
 }
 
+fn validate_bmc_helix_target(
+    selection: &AuthenticationSelection,
+    server: &BmcHelixServerUrl,
+    catalogue: Option<&BmcHelixServerCatalog>,
+    target: &Url,
+) -> Result<()> {
+    let Some((_, server_id)) = selection.bmc_helix_session() else {
+        eyre::bail!("Helix authorization requires a Helix authentication selection");
+    };
+    let expected = if matches!(
+        selection,
+        AuthenticationSelection::BmcHelixInnovationSuite { .. }
+    ) {
+        catalogue
+            .and_then(|catalogue| catalogue.innovation_suite_url_for_origin(server))
+            .unwrap_or(server)
+    } else {
+        server
+    };
+    ensure!(
+        server.id() == server_id
+            && target.origin() == expected.as_url().origin()
+            && target.username().is_empty()
+            && target.password().is_none(),
+        "Helix request destination does not belong to the selected account server"
+    );
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn helix_token_is_bound_to_the_registered_https_origin() -> Result<()> {
+        let account_id = CloudTerrastodonAccountId::new(Uuid::from_u128(1));
+        let server: BmcHelixServerUrl = "https://helix.example.invalid:8443".parse()?;
+        let server_id = server.id();
+        let provider = CredentialAuthenticationProvider::for_bmc_helix(
+            account_id,
+            server,
+            BmcHelixAuthorization::new("synthetic-token")?,
+            Uuid::from_u128(2),
+        );
+        let selection = AuthenticationSelection::BmcHelix {
+            account_id,
+            server_id,
+        };
+        let target = Url::parse("https://helix.example.invalid:8443/api/arsys/v1/entry")?;
+        provider.validate_target(&selection, &target)?;
+        assert!(
+            provider
+                .bmc_helix_authorization(&selection, &target)?
+                .header()
+                .unwrap()
+                .is_sensitive()
+        );
+        for target in [
+            "http://helix.example.invalid:8443",
+            "https://helix.example.invalid",
+            "https://helix.example.invalid.other.example:8443",
+            "https://user@helix.example.invalid:8443",
+        ] {
+            let target = Url::parse(target)?;
+            assert!(provider.validate_target(&selection, &target).is_err());
+            assert!(
+                provider
+                    .bmc_helix_authorization(&selection, &target)
+                    .is_err()
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn helix_innovation_suite_token_uses_only_the_origins_approved_for_the_issuer() -> Result<()> {
+        let account_id = CloudTerrastodonAccountId::new(Uuid::from_u128(1));
+        let issuer: BmcHelixServerUrl = "https://issuer.example.invalid".parse()?;
+        let innovation_suite: BmcHelixServerUrl = "https://suite.example.invalid".parse()?;
+        let server_id = issuer.id();
+        let name = "example".parse()?;
+        let catalogue = BmcHelixServerCatalog {
+            servers: [(name, issuer.clone())].into(),
+            innovation_suite_urls: [("example".parse()?, innovation_suite.clone())].into(),
+            default: None,
+        };
+        let selection = AuthenticationSelection::BmcHelixInnovationSuite {
+            account_id,
+            server_id,
+        };
+        validate_bmc_helix_target(
+            &selection,
+            &issuer,
+            Some(&catalogue),
+            innovation_suite.as_url(),
+        )?;
+        validate_bmc_helix_target(&selection, &issuer, None, issuer.as_url())?;
+        for target in [
+            "https://issuer.example.invalid",
+            "https://suite.example.invalid:8443",
+            "https://suite.example.invalid.other.example.invalid",
+            "http://suite.example.invalid",
+            "https://user@suite.example.invalid",
+        ] {
+            assert!(
+                validate_bmc_helix_target(
+                    &selection,
+                    &issuer,
+                    Some(&catalogue),
+                    &Url::parse(target)?
+                )
+                .is_err()
+            );
+        }
+        let ar_system = AuthenticationSelection::BmcHelix {
+            account_id,
+            server_id,
+        };
+        assert!(
+            validate_bmc_helix_target(
+                &ar_system,
+                &issuer,
+                Some(&catalogue),
+                innovation_suite.as_url()
+            )
+            .is_err()
+        );
+        assert!(
+            validate_bmc_helix_target(&selection, &issuer, None, innovation_suite.as_url())
+                .is_err()
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn retiring_one_helix_server_preserves_the_same_accounts_other_session() -> Result<()> {
+        let directory = tempfile::tempdir()?;
+        let cache = WorkCache::new(directory.path())?;
+        let account_id = CloudTerrastodonAccountId::new(Uuid::from_u128(1));
+        let first: BmcHelixServerUrl = "https://first.helix.example.invalid".parse()?;
+        let second: BmcHelixServerUrl = "https://second.helix.example.invalid".parse()?;
+        let first_id = first.id();
+        let second_id = second.id();
+        let provider = CredentialAuthenticationProvider::combine([
+            CredentialAuthenticationProvider::for_bmc_helix(
+                account_id,
+                first,
+                BmcHelixAuthorization::new("first-test-token")?,
+                Uuid::from_u128(2),
+            ),
+            CredentialAuthenticationProvider::for_bmc_helix(
+                account_id,
+                second,
+                BmcHelixAuthorization::new("second-test-token")?,
+                Uuid::from_u128(2),
+            ),
+        ])?;
+        let first_selection = AuthenticationSelection::BmcHelix {
+            account_id,
+            server_id: first_id,
+        };
+        let first_innovation_selection = AuthenticationSelection::BmcHelixInnovationSuite {
+            account_id,
+            server_id: first_id,
+        };
+        let second_selection = AuthenticationSelection::BmcHelix {
+            account_id,
+            server_id: second_id,
+        };
+
+        let first_partition = provider.admit(&first_selection)?;
+        assert_eq!(
+            first_partition,
+            provider.admit(&first_innovation_selection)?
+        );
+        let second_retained = provider.leased(&second_selection)?;
+        let second_partition = second_retained.admit(&second_selection)?;
+        assert_ne!(first_partition, second_partition);
+
+        CancellationToken::new()
+            .with_async_scope(async |scope| {
+                second_retained
+                    .retire_bmc_helix_session(account_id, first_id, &cache, &scope)
+                    .await?;
+                assert!(provider.leased(&first_selection).is_err());
+                assert!(provider.leased(&first_innovation_selection).is_err());
+                assert_eq!(provider.admit(&second_selection)?, second_partition);
+                eyre::Ok(())
+            })
+            .await
+    }
     use crate::AzureDevOpsPersonalAccessToken;
     use crate::cloud_terrastodon_account_secret_store::CloudTerrastodonAccountSecretStore;
     use cloud_terrastodon_auth_types::AuthSource;

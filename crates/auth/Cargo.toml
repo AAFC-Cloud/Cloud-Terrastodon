@@ -12,6 +12,8 @@ categories.workspace = true
 
 [dependencies]
 cloud_terrastodon_azure_devops_types.workspace = true
+cloud_terrastodon_bmc_helix.workspace = true
+cloud_terrastodon_bmc_helix_types.workspace = true
 cloud_terrastodon_auth_types.workspace = true
 cloud_terrastodon_cache.workspace = true
 cloud_terrastodon_azure_types.workspace = true
@@ -27,6 +29,7 @@ eyre.workspace = true
 futures.workspace = true
 tracing.workspace = true
 reqwest.workspace = true
+url.workspace = true
 http.workspace = true
 facet.workspace = true
 facet-json.workspace = true

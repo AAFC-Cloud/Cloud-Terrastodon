@@ -18,6 +18,7 @@ test-support = []
 cloud_terrastodon_auth_types.workspace = true
 cloud_terrastodon_azure_types.workspace = true
 cloud_terrastodon_azure_devops_types.workspace = true
+cloud_terrastodon_bmc_helix_types.workspace = true
 cloud_terrastodon_cache.workspace = true
 eyre.workspace = true
 futures.workspace = true

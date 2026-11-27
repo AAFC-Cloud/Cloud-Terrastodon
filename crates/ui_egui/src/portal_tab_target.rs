@@ -3,6 +3,7 @@ use crate::entra_user_section::EntraUserSection;
 use crate::entra_user_subject::EntraUserSubject;
 use crate::portal_azure_devops_organization_view::PortalAzureDevOpsOrganizationView;
 use crate::portal_azure_devops_project_view::PortalAzureDevOpsProjectView;
+use crate::portal_helix_server_view::PortalHelixServerView;
 use crate::portal_page::PortalPage;
 use crate::portal_resource_output_target::PortalResourceOutputTarget;
 use crate::portal_resource_scope::PortalResourceScope;
@@ -23,6 +24,7 @@ use cloud_terrastodon_azure::ScopeImpl;
 use cloud_terrastodon_azure::SubscriptionId;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectId;
+use cloud_terrastodon_bmc_helix_types::BmcHelixServerName;
 use facet::Facet;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -60,6 +62,10 @@ pub enum PortalTabTarget {
         organization: Box<AzureDevOpsOrganizationUrl>,
         project: AzureDevOpsProjectId,
         view: PortalAzureDevOpsProjectView,
+    },
+    HelixServer {
+        server: BmcHelixServerName,
+        view: PortalHelixServerView,
     },
     EntraGroupSection {
         group_id: EntraGroupId,
@@ -129,6 +135,13 @@ impl PortalTabTarget {
                     Cow::Owned(format!("Project {project} · {}", view.label()))
                 }
             }
+            Self::HelixServer { server, view } => match view {
+                PortalHelixServerView::Overview => Cow::Owned(server.to_string()),
+                PortalHelixServerView::WorkOrders => Cow::Owned(format!("{server} · Work orders")),
+                PortalHelixServerView::Tickets => Cow::Owned(format!("{server} · Tickets")),
+                PortalHelixServerView::WorkOrder(id) => Cow::Owned(id.to_string()),
+                PortalHelixServerView::Ticket(id) => Cow::Borrowed(id.as_str()),
+            },
             Self::EntraUser(id) => Cow::Owned(format!("User {id}")),
             Self::EntraUserSection { user, section } => {
                 Cow::Owned(format!("{} · {}", user.overview().title(), section.title()))
@@ -177,6 +190,7 @@ impl PortalTabTarget {
             Self::AzureDevOpsOrganization { .. } | Self::AzureDevOpsProject { .. } => {
                 PortalPage::AzureDevOpsOrganizations
             }
+            Self::HelixServer { .. } => PortalPage::HelixServers,
             Self::ResourceOutput { resource, .. } => resource.inventory(),
             Self::LocalPath(_) => PortalPage::WorkDirs,
         }

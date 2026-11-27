@@ -3,7 +3,7 @@ use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use facet::Facet;
-/// List non-secret account profiles and configured defaults.
+/// List account profiles, configured defaults, and per-server Helix sign-in status.
 #[derive(Debug, Facet)]
 pub struct AccountListArgs {}
 impl AccountListArgs {

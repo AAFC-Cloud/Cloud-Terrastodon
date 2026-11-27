@@ -4,6 +4,7 @@ use super::account_add_gitea_cli::AccountAddGiteaArgs;
 use super::account_add_workload_identity_cli::AccountAddWorkloadIdentityArgs;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth_cli::AccountAddBrowserArgs;
+use cloud_terrastodon_bmc_helix_cli::AccountAddHelixArgs;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use facet::Facet;
@@ -22,6 +23,7 @@ pub enum AccountAddCommand {
     WorkloadIdentity(AccountAddWorkloadIdentityArgs),
     AzureDevOps(AccountAddAzureDevOpsArgs),
     Gitea(AccountAddGiteaArgs),
+    Helix(AccountAddHelixArgs),
 }
 impl AccountAddArgs {
     pub async fn invoke(self, cancellation: &CancellationScope) -> Result<CliOutput> {
@@ -31,6 +33,7 @@ impl AccountAddArgs {
             AccountAddCommand::WorkloadIdentity(args) => Box::pin(args.invoke(cancellation)).await,
             AccountAddCommand::AzureDevOps(args) => Box::pin(args.invoke(cancellation)).await,
             AccountAddCommand::Gitea(args) => Box::pin(args.invoke(cancellation)).await,
+            AccountAddCommand::Helix(args) => Box::pin(args.invoke(cancellation)).await,
         }
     }
 }

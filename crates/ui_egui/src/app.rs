@@ -10,6 +10,7 @@ use crate::gui_work_cache::GuiWorkCache;
 use crate::local_path_preview::LocalPathPreview;
 use crate::portal_address::PortalAddress;
 use crate::portal_azure_content::PortalAzureContent;
+use crate::portal_helix_content::PortalHelixContent;
 use crate::portal_history::PortalHistory;
 use crate::portal_log_toast::PortalLogToast;
 use crate::portal_page::PortalPage;
@@ -55,6 +56,7 @@ pub struct MyApp {
     pub(crate) azure_devops_organization_picker: AzureDevOpsOrganizationPicker,
     pub(crate) azure_devops_license_updates: HashSet<AzureDevOpsOrganizationUrl>,
     pub(crate) azure: PortalAzureContent,
+    pub(crate) helix: PortalHelixContent,
     // The displayed content is attached while invoking its existing page widgets.
     azure_tab: PortalTabId,
     azure_tabs: HashMap<PortalTabId, PortalAzureContent>,
@@ -147,6 +149,7 @@ impl MyApp {
                 azure_devops_organization,
                 ..PortalAzureContent::new(authentication, 0)
             },
+            helix: PortalHelixContent::default(),
             azure_tab: tabs.active_id(),
             azure_tabs: HashMap::new(),
             next_account_generation: 1,
@@ -195,7 +198,8 @@ impl MyApp {
         self.azure_tabs.insert(previous_tab, previous);
     }
 
-    pub(crate) fn seed_azure_content(&mut self, tab: PortalTabId, source: PortalTabId) {
+    pub(crate) fn seed_tab_content(&mut self, tab: PortalTabId, source: PortalTabId) {
+        self.seed_helix_content(tab, source);
         if self.azure_tab != tab && !self.azure_tabs.contains_key(&tab) {
             let content = self
                 .azure_content_for_tab(source)
@@ -271,6 +275,9 @@ impl MyApp {
             return;
         }
         self.sync_azure_content();
+        if previous != self.tabs.active_id() {
+            self.seed_helix_content(self.tabs.active_id(), previous);
+        }
         if previous == self.tabs.active_id() {
             self.azure.resource_search.clear();
         }
@@ -296,7 +303,7 @@ impl MyApp {
     pub(crate) fn open_background_tab(&mut self, target: PortalTabTarget) -> PortalTabId {
         let source = self.tabs.active_id();
         let tab = self.tabs.open_background(target.clone());
-        self.seed_azure_content(tab, source);
+        self.seed_tab_content(tab, source);
         if matches!(
             self.tabs.active(),
             PortalTabTarget::Page(PortalPage::AzureDevOpsOrganizations)
@@ -315,6 +322,7 @@ impl MyApp {
     pub(crate) fn retain_open_tab_data(&mut self) {
         self.sync_azure_content();
         self.azure_tabs.retain(|id, _| self.tabs.retains_tab(*id));
+        self.helix.retain_tabs(|id| self.tabs.retains_tab(id));
         self.account_picker
             .retain_tabs(|id| self.tabs.tab(id).is_some());
         self.pending_log_jumps
@@ -397,6 +405,7 @@ impl App for MyApp {
         // Channel delivery does not wake eframe. Continue receiving results even
         // when the active page has no animated spinner or is showing other data.
         if self.azure.is_loading()
+            || self.helix.is_loading()
             || self.azure_tabs.values().any(PortalAzureContent::is_loading)
             || self
                 .azure_devops_organization_picker

@@ -21,7 +21,7 @@ use eframe::egui::Vec2;
 use eframe::egui::WidgetInfo;
 use eframe::egui::WidgetType;
 
-const NAVIGATION_PAGES: [(PortalPage, &str); 17] = [
+const NAVIGATION_PAGES: [(PortalPage, &str); 18] = [
     (PortalPage::Home, "home"),
     (PortalPage::Resources, "resources"),
     (PortalPage::Subscriptions, "subscriptions"),
@@ -34,6 +34,7 @@ const NAVIGATION_PAGES: [(PortalPage, &str); 17] = [
     (PortalPage::Entra, "entra"),
     (PortalPage::Pim, "pim"),
     (PortalPage::AzureDevOpsOrganizations, "devops-organizations"),
+    (PortalPage::HelixServers, "helix"),
     (PortalPage::Auditing, "auditing"),
     (PortalPage::StartingPoints, "starting-points"),
     (PortalPage::SelectedItems, "selected-items"),
