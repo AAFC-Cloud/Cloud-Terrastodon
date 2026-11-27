@@ -1,7 +1,7 @@
+use crate::azure_devops_entitlement_date_proxy::parse_entitlement_timestamp;
 use arbitrary::Arbitrary;
 use facet::Facet;
 use jiff::Timestamp;
-use jiff::tz::Offset;
 use std::str::FromStr;
 
 /// The last access timestamp for an [Azure DevOps 7.1 user entitlement](https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/get?view=azure-devops-rest-7.1#examples).
@@ -17,14 +17,7 @@ impl FromStr for LastAccessedDate {
     type Err = jiff::Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let accessed_at = value.parse::<Timestamp>()?;
-        let utc = Offset::UTC.to_datetime(accessed_at);
-        // The Get and Add examples report year-1 sentinels at different hours.
-        if utc.year() == 1 && utc.day_of_year() == 1 {
-            Ok(Self::Never)
-        } else {
-            Ok(Self::Some(accessed_at))
-        }
+        Ok(parse_entitlement_timestamp(value)?.map_or(Self::Never, Self::Some))
     }
 }
 
@@ -52,6 +45,7 @@ mod tests {
     #[test]
     fn recognizes_documented_never_accessed_dates() -> eyre::Result<()> {
         for timestamp in [
+            "0001-01-01T00:00:00",
             "0001-01-01T00:00:00Z",
             "0001-01-01T00:00:00+00:00",
             "0001-01-01T08:00:00Z",

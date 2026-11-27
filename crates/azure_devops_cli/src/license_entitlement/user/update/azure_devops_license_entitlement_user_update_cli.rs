@@ -7,6 +7,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsLicenseAccessLevelUpdate;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
+use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlementNotFound;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlementShowRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlementUpdateRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
@@ -37,15 +38,6 @@ pub struct AzureDevOpsLicenseEntitlementUserUpdateArgs {
     /// Desired license kind (e.g. "Account-Express", "Account-Advanced")
     #[facet(figue::named)]
     pub license: AzureDevOpsLicenseType,
-
-    /// Don't use cached license entitlement information, fetch fresh from Azure DevOps.
-    #[facet(
-        figue::named,
-        figue::alias = "skip-cache",
-        figue::alias = "clean",
-        default = false
-    )]
-    pub no_cache: bool,
 }
 
 impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
@@ -54,40 +46,21 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
         let auth_selection = self.authentication.resolve(&self.org, executor).await?;
 
         let mut outcomes = Vec::new();
-        for (i, user) in self.user.into_iter().enumerate() {
-            let was = if let Some(ref expected) = self.has_license {
-                if let Some(entitlement) = match (AzureDevOpsUserLicenseEntitlementShowRequest {
+        for user in self.user {
+            let was = if let Some(expected) = &self.has_license {
+                let lookup = AzureDevOpsUserLicenseEntitlementShowRequest {
                     org_url: Cow::Borrowed(&self.org),
                     user: (&user).into(),
                     auth_selection,
-                })
+                }
                 .execute(executor)
-                .with_invalidation(i == 0 && self.no_cache)
-                .await
-                {
-                    Ok(entitlement) => Some(entitlement),
-                    Err(_)
-                        if expected
-                            == &AzureDevOpsLicenseType::Account(
-                                AzureDevOpsAccountLicenseType::Stakeholder,
-                            ) =>
-                    {
-                        None
-                    }
-                    Err(e) => {
-                        error!(
-                            %user,
-                            %expected,
-                            "Failed to fetch license entitlement for user, skipping due to expected license requirement: {e:#}"
-                        );
-                        outcomes.push(AzureDevOpsLicenseUpdateOutcome::SkippedDueToLicenseMatchFailureDueToMissingLicense(
-                            user,
-                        ));
-                        continue;
-                    }
-                } {
-                    match entitlement.license() {
-                        license if license == self.license => {
+                .with_invalidation(true)
+                .await;
+                executor.cancellation().bail_if_cancelled()?;
+                match lookup {
+                    Ok(entitlement) => {
+                        let license = entitlement.license();
+                        if license == self.license {
                             info!(
                                 %user,
                                 %license,
@@ -96,7 +69,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                             outcomes.push(AzureDevOpsLicenseUpdateOutcome::NoChangeNeeded(user));
                             continue;
                         }
-                        license if &license != expected => {
+                        if &license != expected {
                             error!(
                                 %user,
                                 existing = %license,
@@ -111,10 +84,42 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                             );
                             continue;
                         }
-                        _ => Some(entitlement),
+                        Some(entitlement)
                     }
-                } else {
-                    None
+                    Err(error)
+                        if error
+                            .downcast_ref::<AzureDevOpsUserLicenseEntitlementNotFound>()
+                            .is_some() =>
+                    {
+                        if expected
+                            != &AzureDevOpsLicenseType::Account(
+                                AzureDevOpsAccountLicenseType::Stakeholder,
+                            )
+                        {
+                            error!(
+                                %user,
+                                %expected,
+                                "User has no license entitlement, skipping update"
+                            );
+                            outcomes.push(AzureDevOpsLicenseUpdateOutcome::SkippedDueToLicenseMatchFailureDueToMissingLicense(
+                                user,
+                            ));
+                            continue;
+                        }
+                        None
+                    }
+                    Err(error) => {
+                        error!(
+                            %user,
+                            %expected,
+                            "Couldn't verify the expected license, skipping update: {error:#}"
+                        );
+                        outcomes.push(AzureDevOpsLicenseUpdateOutcome::SkippedDueToLookupFailure {
+                            user,
+                            error: format!("{error:#}"),
+                        });
+                        continue;
+                    }
                 }
             } else {
                 None

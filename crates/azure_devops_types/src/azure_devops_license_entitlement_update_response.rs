@@ -1,6 +1,7 @@
 use crate::AzureDevOpsLicenseRule;
 use crate::AzureDevOpsUserId;
 use crate::LastAccessedDate;
+use crate::azure_devops_entitlement_date_proxy::AzureDevOpsEntitlementDateProxy;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use facet::Facet;
@@ -13,7 +14,8 @@ use std::collections::BTreeMap;
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsLicenseEntitlementUpdateResponse {
     pub access_level: AzureDevOpsLicenseRule,
-    /// The documented update response omits this read-only creation timestamp.
+    /// The service can omit the creation timestamp or return its unset sentinel.
+    #[facet(default, proxy = AzureDevOpsEntitlementDateProxy)]
     pub date_created: Option<Timestamp>,
     pub extensions: Vec<ArbitraryJson>,
     pub group_assignments: Vec<ArbitraryJson>,

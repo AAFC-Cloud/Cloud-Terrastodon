@@ -1,4 +1,5 @@
 use crate::AzureDevOpsUserLicenseEntitlementListRequest;
+use crate::AzureDevOpsUserLicenseEntitlementNotFound;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
@@ -10,7 +11,6 @@ use cloud_terrastodon_cache::HasCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use eyre::bail;
 use facet::Facet;
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -80,13 +80,11 @@ impl<'a> ExecutableRequest for AzureDevOpsUserLicenseEntitlementShowRequest<'a> 
                 .find(|license_entitlement| self.user.matches(license_entitlement))
             {
                 Some(found) => Ok(found),
-                None => {
-                    bail!(
-                        "No license entitlement found for user {:?} in organization {:?}",
-                        self.user,
-                        self.org_url
-                    );
+                None => Err(AzureDevOpsUserLicenseEntitlementNotFound {
+                    organization: self.org_url.into_owned(),
+                    user: self.user.into_owned(),
                 }
+                .into()),
             }
         })
     }

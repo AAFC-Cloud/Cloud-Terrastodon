@@ -43,6 +43,10 @@ impl AzureDevOpsLicenseUpdateReport {
                     was.as_ref().map(|entry| entry.license()),
                     Some(now.license()),
                 ),
+                AzureDevOpsLicenseUpdateOutcome::SkippedDueToLookupFailure { user, error } => {
+                    writeln!(writer, "{user:64} skipped because the license could not be verified ({error})")?;
+                    continue;
+                }
             };
             write!(writer, "{user:64} was ")?;
             match was {

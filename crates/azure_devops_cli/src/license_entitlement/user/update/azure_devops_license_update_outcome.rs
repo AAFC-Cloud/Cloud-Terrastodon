@@ -22,4 +22,8 @@ pub enum AzureDevOpsLicenseUpdateOutcome {
         was: Option<Arc<AzureDevOpsUserLicenseEntitlement>>,
         now: Arc<AzureDevOpsUserLicenseEntitlement>,
     },
+    SkippedDueToLookupFailure {
+        user: AzureDevOpsUserArgument<'static>,
+        error: String,
+    },
 }

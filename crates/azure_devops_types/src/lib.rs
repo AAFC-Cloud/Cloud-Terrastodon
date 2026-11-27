@@ -62,6 +62,7 @@ mod azure_devops_build_yaml_filename;
 mod azure_devops_collection_response;
 mod azure_devops_descriptor;
 mod azure_devops_entra_user_descriptor;
+mod azure_devops_entitlement_date_proxy;
 mod azure_devops_graph_descriptor_result;
 mod azure_devops_graph_membership;
 mod azure_devops_graph_subject_lookup_body;
