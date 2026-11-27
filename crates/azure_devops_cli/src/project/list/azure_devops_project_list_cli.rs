@@ -11,6 +11,10 @@ use std::borrow::Cow;
 /// Azure DevOps project-related commands.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectListArgs {
+    /// Fetch fresh data from Azure DevOps.
+    #[facet(figue::named, default)]
+    pub no_cache: bool,
+
     /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
     pub org: AzureDevOpsOrganizationUrl,
@@ -27,6 +31,7 @@ impl AzureDevOpsProjectListArgs {
             auth_selection,
         }
         .execute(executor)
+        .with_invalidation(self.no_cache)
         .await?;
         Ok(CliOutput::facet(projects))
     }
@@ -67,6 +72,7 @@ mod tests {
                     (None, AuthSource::WorkloadIdentity, "explicit tenant"),
                 ] {
                     let error = AzureDevOpsProjectListArgs {
+                        no_cache: false,
                         org: "synthetic".parse()?,
                         authentication: AzureDevOpsAuthenticationArgs {
                             tenant,

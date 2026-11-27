@@ -43,6 +43,10 @@ pub struct AzureDevOpsProjectWorkItemListRequest<'a> {
     pub limit: NonZeroU16,
 }
 
+impl AzureDevOpsProjectWorkItemListRequest<'_> {
+    pub const DEFAULT_LIMIT: NonZeroU16 = NonZeroU16::MIN.saturating_add(199);
+}
+
 impl<'a> Arbitrary<'a> for AzureDevOpsProjectWorkItemListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {

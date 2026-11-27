@@ -12,6 +12,10 @@ use std::borrow::Cow;
 /// List Azure DevOps teams in a project.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsTeamListArgs {
+    /// Fetch fresh data from Azure DevOps.
+    #[facet(figue::named, default)]
+    pub no_cache: bool,
+
     #[facet(flatten)]
     pub authentication: AzureDevOpsAuthenticationArgs,
 
@@ -32,6 +36,7 @@ impl AzureDevOpsTeamListArgs {
             project: (self.project),
         }
         .execute(executor)
+        .with_invalidation(self.no_cache)
         .await?;
         Ok(CliOutput::facet(teams))
     }

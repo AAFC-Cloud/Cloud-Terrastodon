@@ -4,6 +4,7 @@ pub mod create;
 pub mod field;
 pub mod list;
 pub mod query;
+pub mod recent;
 pub mod relation;
 pub mod show;
 pub mod r#type;

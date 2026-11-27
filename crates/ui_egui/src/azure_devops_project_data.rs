@@ -23,10 +23,7 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use std::borrow::Cow;
-use std::num::NonZeroU16;
 use std::sync::Arc;
-
-pub(crate) const WORK_ITEM_LIMIT: NonZeroU16 = NonZeroU16::MIN.saturating_add(200 - 1);
 
 /// Inventory for a selected Azure DevOps project section.
 #[derive(Debug)]
@@ -68,7 +65,7 @@ impl AzureDevOpsProjectData {
                 org_url,
                 project_id,
                 auth_selection,
-                limit: WORK_ITEM_LIMIT,
+                limit: AzureDevOpsProjectWorkItemListRequest::DEFAULT_LIMIT,
             }
             .execute(executor)
             .with_invalidation(refresh)

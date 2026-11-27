@@ -1,5 +1,4 @@
 use crate::azure_devops_project_data::AzureDevOpsProjectData;
-use crate::azure_devops_project_data::WORK_ITEM_LIMIT;
 use crate::entra_directory_ui::copyable_id;
 use crate::reflected_table::ReflectedTable;
 use crate::reflected_table_column::ReflectedTableColumn;
@@ -9,6 +8,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectId;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectState;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectVisibility;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectWorkItemListRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsReferenceLinkUrl;
 use eframe::egui::Context;
 use eframe::egui::Grid;
@@ -107,7 +107,8 @@ pub(crate) fn show_azure_devops_project_data(
                 ReflectedTableColumn::new("ID", "id").with_width(100.0),
             ];
             ui.weak(format!(
-                "Up to {WORK_ITEM_LIMIT} most recently changed work items"
+                "Up to {} most recently changed work items",
+                AzureDevOpsProjectWorkItemListRequest::DEFAULT_LIMIT,
             ));
             let context = ui.ctx().clone();
             ReflectedTable::new(id, &columns)

@@ -13,6 +13,10 @@ use std::borrow::Cow;
 /// Azure DevOps project-related commands.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectShowArgs {
+    /// Fetch fresh data from Azure DevOps.
+    #[facet(figue::named, default)]
+    pub no_cache: bool,
+
     #[facet(flatten)]
     pub authentication: AzureDevOpsAuthenticationArgs,
 
@@ -32,6 +36,7 @@ impl AzureDevOpsProjectShowArgs {
             auth_selection,
         }
         .execute(executor)
+        .with_invalidation(self.no_cache)
         .await?;
 
         // Find the project matching the resolved ID or name.

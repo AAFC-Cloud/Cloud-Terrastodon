@@ -13,6 +13,10 @@ use std::borrow::Cow;
 /// List Azure DevOps agent pool entitlements (queues) in a project.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPoolEntitlementListArgs {
+    /// Fetch fresh data from Azure DevOps.
+    #[facet(figue::named, default)]
+    pub no_cache: bool,
+
     #[facet(flatten)]
     pub authentication: AzureDevOpsAuthenticationArgs,
 
@@ -35,6 +39,7 @@ impl AzureDevOpsAgentPoolEntitlementListArgs {
             auth_selection,
         }
         .execute(executor)
+        .with_invalidation(self.no_cache)
         .await?;
         let entitlements: Vec<_> = entitlements
             .into_iter()

@@ -12,6 +12,10 @@ use std::borrow::Cow;
 /// List Azure DevOps service endpoints in a project.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsServiceEndpointListArgs {
+    /// Fetch fresh data from Azure DevOps.
+    #[facet(figue::named, default)]
+    pub no_cache: bool,
+
     #[facet(flatten)]
     pub authentication: AzureDevOpsAuthenticationArgs,
 
@@ -32,6 +36,7 @@ impl AzureDevOpsServiceEndpointListArgs {
             project: (self.project),
         }
         .execute(executor)
+        .with_invalidation(self.no_cache)
         .await?;
         Ok(CliOutput::facet(endpoints))
     }

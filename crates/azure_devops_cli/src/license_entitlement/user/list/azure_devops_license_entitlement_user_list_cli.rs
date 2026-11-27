@@ -11,6 +11,10 @@ use std::borrow::Cow;
 /// List Azure DevOps license entitlements (users) for the organization.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserListArgs {
+    /// Fetch fresh data from Azure DevOps.
+    #[facet(figue::named, default)]
+    pub no_cache: bool,
+
     #[facet(flatten)]
     pub authentication: AzureDevOpsAuthenticationArgs,
 
@@ -27,6 +31,7 @@ impl AzureDevOpsLicenseEntitlementUserListArgs {
             auth_selection,
         }
         .execute(executor)
+        .with_invalidation(self.no_cache)
         .await?;
         Ok(CliOutput::facet(entitlements))
     }

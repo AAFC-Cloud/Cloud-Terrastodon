@@ -100,6 +100,7 @@ impl PortalAddress {
             } => format_shell_command(
                 "ct az devops project list".to_owned(),
                 &AzureDevOpsProjectListArgs {
+                    no_cache: false,
                     org: organization.as_ref().clone(),
                     authentication,
                 },

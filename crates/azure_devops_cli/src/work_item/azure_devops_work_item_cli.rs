@@ -3,6 +3,7 @@ use crate::work_item::create::AzureDevOpsWorkItemCreateArgs;
 use crate::work_item::field::AzureDevOpsWorkItemFieldArgs;
 use crate::work_item::list::AzureDevOpsWorkItemListArgs;
 use crate::work_item::query::AzureDevOpsWorkItemQueryArgs;
+use crate::work_item::recent::AzureDevOpsWorkItemRecentArgs;
 use crate::work_item::relation::AzureDevOpsWorkItemRelationArgs;
 use crate::work_item::show::AzureDevOpsWorkItemShowArgs;
 use crate::work_item::r#type::AzureDevOpsWorkItemTypeArgs;
@@ -24,6 +25,8 @@ pub struct AzureDevOpsWorkItemArgs {
 pub enum AzureDevOpsWorkItemCommand {
     /// Fetch an explicit set of work item IDs.
     List(AzureDevOpsWorkItemListArgs),
+    /// List the most recently changed work items in a project.
+    Recent(AzureDevOpsWorkItemRecentArgs),
     /// Show one work item's fields and relations.
     Show(AzureDevOpsWorkItemShowArgs),
     /// Create a work item with typed fields and optional relations.
@@ -46,6 +49,7 @@ impl AzureDevOpsWorkItemArgs {
     pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
             AzureDevOpsWorkItemCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemCommand::Recent(args) => Box::pin(args.invoke(executor)).await,
             AzureDevOpsWorkItemCommand::Show(args) => Box::pin(args.invoke(executor)).await,
             AzureDevOpsWorkItemCommand::Create(args) => Box::pin(args.invoke(executor)).await,
             AzureDevOpsWorkItemCommand::Update(args) => Box::pin(args.invoke(executor)).await,
