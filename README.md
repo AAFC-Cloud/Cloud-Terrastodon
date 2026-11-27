@@ -133,6 +133,9 @@ such as `facet` and `figue`.
 [Cargo.toml](Cargo.toml) defines the selected dependency versions and sources.
 See [the dependency guide](docs/UPDATING_FACET.md) for the fork update workflow.
 
+Add CLI equivalents for new egui data pages and actions. See
+[CLI and egui parity](docs/cli-egui-parity.md) for the rule and recent audit.
+
 For a small CLI with your own arguments and subcommands, see
 [Reusable applications](docs/REUSABLE_APPLICATIONS.md) and the independently tested
 [single-file consumer example](examples/standalone-cli).

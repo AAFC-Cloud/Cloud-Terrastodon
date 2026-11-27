@@ -363,6 +363,23 @@ Standalone examples may remain self-contained, as described in
   operations may still solicit a user; unattended discovery must exclude
   `Solicit` and apply its authentication and scope admission policy.
 
+## CLI and egui parity
+
+- Give every egui data page and every action that reads or changes service
+  data or local configuration a discoverable CLI equivalent in the same change.
+  Check the CLI when extending an existing page with an operation or a
+  server-side filter.
+- Share request objects and domain workflows between both entry points. Keep
+  authentication, scope, filters, defaults, and mutation verification aligned.
+  An equivalent CLI command can return structured data that egui presents as
+  several sections or tables.
+- Use the typed CLI schema to generate a copyable command from egui when the
+  page has a CLI address. Include the scope and inputs needed to reproduce its
+  request.
+- Window layout, tab history, focus, and other presentation interactions belong
+  to egui. Review domain operations alongside the
+  [CLI and egui parity audit](docs/cli-egui-parity.md).
+
 ## CLI naming and output
 
 - Put Azure, Azure DevOps, and source command implementations under
