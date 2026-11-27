@@ -8,6 +8,7 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::panic::Location;
 use teamy_cancellation::CancellationScope;
+use teamy_cancellation::CancellationToken;
 use teamy_tracing::DiagnosticReport;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::UnboundedSender;
@@ -52,7 +53,20 @@ where
         state: &mut State,
         cancellation: &CancellationScope,
     ) -> eyre::Result<()> {
-        tracker.spawn(
+        self.enqueue_cancellable(tracker, sender, state, cancellation)
+            .map(drop)
+    }
+
+    /// Enqueue work whose owner can request cancellation independently of other tasks.
+    #[track_caller]
+    pub fn enqueue_cancellable(
+        self,
+        tracker: &AppWorkTracker,
+        sender: UnboundedSender<AppboundWorkFinishedMessage<State>>,
+        state: &mut State,
+        cancellation: &CancellationScope,
+    ) -> eyre::Result<CancellationToken> {
+        let scheduled = tracker.spawn_cancellable(
             cancellation,
             &Handle::current(),
             self.description,
@@ -90,8 +104,18 @@ where
                 }
                 Ok(())
             },
-        )?;
+        );
+        let cancel = scheduled.inspect_err(|error| {
+            if !error.is_cancellation() {
+                let cause: &(dyn std::error::Error + 'static) = error.as_ref();
+                error!(
+                    error = cause,
+                    work_location = %RelativeLocation::from(self.location),
+                    "Could not schedule background work"
+                );
+            }
+        })?;
         (self.on_enqueue)(state);
-        Ok(())
+        Ok(cancel)
     }
 }

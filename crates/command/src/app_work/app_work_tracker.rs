@@ -8,6 +8,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Instant;
 use teamy_cancellation::CancellationScope;
+use teamy_cancellation::CancellationToken;
 use tokio::runtime::Handle;
 use tracing::info;
 
@@ -59,6 +60,23 @@ impl AppWorkTracker {
         C: FnOnce(CancellationScope) -> F + Send + 'static,
         F: Future<Output = Result<()>> + Send + 'static,
     {
+        self.spawn_cancellable(cancellation, runtime, description, factory)
+            .map(drop)
+    }
+
+    /// Admit tracked work and return the token for cancelling this task individually.
+    #[track_caller]
+    pub fn spawn_cancellable<C, F>(
+        &self,
+        cancellation: &CancellationScope,
+        runtime: &Handle,
+        description: String,
+        factory: C,
+    ) -> Result<CancellationToken>
+    where
+        C: FnOnce(CancellationScope) -> F + Send + 'static,
+        F: Future<Output = Result<()>> + Send + 'static,
+    {
         let mut work = self
             .work
             .lock()
@@ -77,10 +95,10 @@ impl AppWorkTracker {
             WorkHandle {
                 description,
                 started_at,
-                cancellation,
+                cancellation: cancellation.clone(),
             },
         );
-        Ok(())
+        Ok(cancellation)
     }
 
     pub fn len(&self) -> Result<usize> {

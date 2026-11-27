@@ -94,6 +94,7 @@ fn labels(events: &[ExecutionEvent]) -> Vec<&'static str> {
                 WorkCacheStatus::Initializing => "initializing",
             },
             ExecutionEvent::Progress(_) => "progress",
+            ExecutionEvent::CollectionPage { .. } => "page",
             ExecutionEvent::Completed => "completed",
             ExecutionEvent::Failed => "failed",
         })
@@ -309,6 +310,9 @@ impl ExecutableRequest for ProgressBurst {
     {
         Box::pin(async move {
             for accumulated in 1..=self.count {
+                if accumulated == 1 {
+                    executor.report_collection_page(0, &Arc::new(vec![7usize]));
+                }
                 executor.report_progress(CollectionProgress {
                     total: Some(self.count),
                     accumulated,
@@ -336,9 +340,14 @@ async fn completion_drains_a_progress_burst_beyond_the_cooperative_poll_budget()
                 .execute(ProgressBurst { count })
                 .observe(|event| events.push(event))
                 .await?;
-            assert_eq!(events.len(), count + 2);
+            assert_eq!(events.len(), count + 3);
             assert!(matches!(events.first(), Some(ExecutionEvent::Admitted)));
-            for (index, event) in events[1..=count].iter().enumerate() {
+            let ExecutionEvent::CollectionPage { index, payload } = &events[1] else {
+                panic!("the decoded page must arrive before its count notification");
+            };
+            assert_eq!(*index, 0);
+            assert_eq!(payload.downcast_ref::<Vec<usize>>().unwrap(), &[7]);
+            for (index, event) in events[2..=count + 1].iter().enumerate() {
                 let ExecutionEvent::Progress(progress) = event else {
                     panic!(
                         "progress was skipped or terminal notification arrived early: {event:?}"

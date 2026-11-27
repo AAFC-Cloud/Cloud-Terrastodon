@@ -167,6 +167,7 @@ impl MicrosoftGraphHelper {
                     .map(Arc::new)
             }
             .map_err(|error| (error, request_index > 0))?;
+            executor.report_collection_page(request_index, &response);
             request_index += 1;
 
             let received_this_page = response.value.len();

@@ -273,6 +273,16 @@ impl CloudTerrastodonExecutor {
         self.report_event(ExecutionEvent::Progress(progress));
     }
 
+    /// Share an already decoded page with the initializer's observer.
+    pub fn report_collection_page<T: Send + Sync + 'static>(&self, index: usize, page: &Arc<T>) {
+        if self.observer.is_some() {
+            self.report_event(ExecutionEvent::CollectionPage {
+                index,
+                payload: page.clone(),
+            });
+        }
+    }
+
     /// Check owned authentication policy without acquiring credentials.
     pub fn admit(&self, selection: &AuthenticationSelection) -> Result<AuthPartition> {
         self.authentication.admit(selection)
