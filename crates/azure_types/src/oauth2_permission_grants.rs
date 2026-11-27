@@ -52,6 +52,14 @@ pub struct OAuth2PermissionGrant {
     pub scope: String,
 }
 impl OAuth2PermissionGrant {
+    /// Whether the grant authorizes the client to act for this user.
+    pub fn applies_to_user(&self, user_id: EntraUserId) -> bool {
+        match self.consent_type {
+            ConsentType::AllPrincipals => true,
+            ConsentType::Principal => self.principal_id == Some(user_id),
+        }
+    }
+
     pub fn get_scopes(&self) -> Vec<&str> {
         self.scope.split_ascii_whitespace().collect_vec()
     }
