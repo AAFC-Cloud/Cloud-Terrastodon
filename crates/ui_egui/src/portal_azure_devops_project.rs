@@ -85,7 +85,9 @@ pub(crate) fn show_azure_devops_project(
             ui.ctx().request_repaint();
             return;
         }
-        Some(PortalTabOpen::Background(target)) => app.open_background_tab(target),
+        Some(PortalTabOpen::Background(target)) => {
+            app.open_background_tab(target);
+        }
         None => {}
     }
 

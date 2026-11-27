@@ -36,7 +36,6 @@ crossterm.workspace = true
 eframe.workspace = true
 egui_extras = { workspace = true, features = ["svg"] }
 
-egui-toast.workspace = true
 eyre.workspace = true
 facet.workspace = true
 facet-json.workspace = true

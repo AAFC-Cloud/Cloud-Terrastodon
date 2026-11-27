@@ -115,7 +115,6 @@ same-file = "1.0.6"
 # Keep the GUI stack coherent and retain the existing glow renderer explicitly.
 eframe = { version = "0.36.2", default-features = false, features = ["accesskit", "default_fonts", "glow", "links", "persistence", "wayland", "x11"] }
 egui_extras = { version = "0.36.2", features = ["default", "image"] }
-egui-toast = "0.22.0"
 teamy-tracing = { version = "0.3.1", default-features = false, features = ["eyre"] }
 # TeamDman's independently published forks. Keep Rust dependency aliases for
 # generated Facet/Figue macro paths and pin the compatible registry releases.

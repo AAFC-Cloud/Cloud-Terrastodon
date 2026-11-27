@@ -7,7 +7,6 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
-use tracing::info;
 
 pub fn load_subscriptions(app: &mut MyApp) {
     load_subscriptions_with_invalidation(app, false);
@@ -22,7 +21,6 @@ pub(crate) fn load_subscriptions_with_invalidation(app: &mut MyApp, refresh: boo
     let work_cache = app.work_cache.clone();
     let cancellation = executor.cancellation().clone();
     let started_at = Instant::now();
-    info!("Queueing work to fetch subscriptions");
     let enqueue_result = LoadableWorkBuilder::<MyApp, Vec<Arc<Subscription>>>::new()
         .description("Loading Subscriptions")
         .setter(move |app, data| {

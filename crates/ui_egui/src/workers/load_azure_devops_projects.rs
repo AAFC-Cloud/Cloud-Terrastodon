@@ -8,7 +8,6 @@ use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
 use cloud_terrastodon_execution::ExecutableRequest;
 use std::borrow::Cow;
 use std::time::Instant;
-use tracing::info;
 
 impl MyApp {
     pub(crate) fn azure_devops_project_name_in<'a>(
@@ -67,7 +66,6 @@ impl MyApp {
             return;
         }
 
-        info!(%organization, "Queueing work to fetch Azure DevOps projects");
         let account_generation = self.azure.account_generation;
         let requested_organization = organization.clone();
         let request = AzureDevOpsProjectsListRequest {

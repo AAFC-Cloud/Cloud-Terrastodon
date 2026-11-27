@@ -5,7 +5,6 @@ use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
 use cloud_terrastodon_execution::ExecutableRequest;
 use std::rc::Rc;
 use std::time::Instant;
-use tracing::info;
 
 pub fn load_resource_groups(app: &mut MyApp, refresh: bool) {
     let account_generation = app.azure.account_generation;
@@ -16,7 +15,6 @@ pub fn load_resource_groups(app: &mut MyApp, refresh: bool) {
     let work_cache = app.work_cache.clone();
     let cancellation = executor.cancellation().clone();
     let started_at = Instant::now();
-    info!("Queueing work to fetch resource groups");
     let enqueue_result = LoadableWorkBuilder::<MyApp, _>::new()
         .description("Loading Resource Groups")
         .setter(move |app, data| {

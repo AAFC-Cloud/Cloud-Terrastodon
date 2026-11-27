@@ -17,19 +17,15 @@ use eframe::egui::ScrollArea;
 use eframe::egui::TextWrapMode;
 use eframe::egui::Ui;
 use egui_extras::Column;
-use egui_toast::Toast;
-use egui_toast::ToastKind;
-use egui_toast::ToastOptions;
 use jiff::Timestamp;
 use jiff::tz::TimeZone;
 use std::collections::HashSet;
-use std::time::Duration;
-use std::time::Instant;
 use teamy_tracing::capture::LogLevel;
 use teamy_tracing::capture::LogRecord;
 use teamy_tracing::capture::LogValue;
 use teamy_tracing::capture::format_record_plain;
 use teamy_tracing::gui::DiagnosticReportView;
+use teamy_tracing::gui::LogView;
 use teamy_tracing::gui::escape_display;
 
 impl MyApp {
@@ -37,13 +33,28 @@ impl MyApp {
         let mut end = 0;
         let records = self.log_capture.records_since(&mut end);
         let start = end - records.len();
+        let captured = start..end;
         let selected_id = ui.make_persistent_id("selected-log-record");
         let mut selected = ui.data(|data| data.get_temp::<usize>(selected_id));
+        let revealed_id = ui.make_persistent_id("revealed-log-record");
+        let follow_id = ui.make_persistent_id("follow-latest-log");
+        let mut follow_latest = ui.data(|data| {
+            data.get_temp::<bool>(follow_id)
+                .unwrap_or(self.log_view.follow_tail)
+        });
+        let jump = self.pending_log_jumps.remove(&self.tabs.active_id());
+        let revealed = jump.or_else(|| ui.data(|data| data.get_temp::<usize>(revealed_id)));
+        if let Some(jump) = jump {
+            selected = captured.contains(&jump).then_some(jump);
+            if selected.is_some() {
+                follow_latest = false;
+            }
+        }
         let checked_id = ui.make_persistent_id("checked-log-records");
         let mut checked = ui
             .data_mut(|data| data.remove_temp::<HashSet<usize>>(checked_id))
             .unwrap_or_default();
-        checked.retain(|id| (start..end).contains(id));
+        checked.retain(|id| captured.contains(id));
         let exclusions_id = ui.make_persistent_id("log-exclusions");
         let mut exclusions = ui.data(|data| {
             data.get_temp::<String>(exclusions_id)
@@ -78,7 +89,7 @@ impl MyApp {
                         );
                     }
                 });
-            ui.checkbox(&mut self.log_view.follow_tail, "Follow latest");
+            ui.checkbox(&mut follow_latest, "Follow latest");
             if ui
                 .add_enabled(
                     !checked.is_empty(),
@@ -93,8 +104,14 @@ impl MyApp {
         });
         if clear {
             self.log_capture.acknowledge_through(end);
-            ui.data_mut(|data| data.remove::<usize>(selected_id));
+            ui.data_mut(|data| {
+                data.remove::<usize>(selected_id);
+                data.remove::<usize>(revealed_id);
+            });
             return;
+        }
+        if revealed.is_some_and(|id| !captured.contains(&id)) {
+            ui.weak("This log entry is no longer available.");
         }
 
         if let Some(record) = selected
@@ -108,6 +125,13 @@ impl MyApp {
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.strong("Log details");
+                        if ui
+                            .small_button("Copy")
+                            .on_hover_text("Copy this log entry with its details")
+                            .clicked()
+                        {
+                            ui.ctx().copy_text(log_record_text(record));
+                        }
                         if ui.small_button("Close").clicked() {
                             selected = None;
                         }
@@ -124,86 +148,65 @@ impl MyApp {
         }
 
         let excludes = PortalLogExclusion::parse_list(&exclusions);
-        let visible: Vec<_> = records
-            .iter()
-            .enumerate()
-            .filter(|(_, record)| {
-                self.log_view.matches(record)
-                    && !excludes.iter().any(|filter| filter.matches(record))
-            })
-            .map(|(index, record)| (start + index, record))
-            .collect();
+        let visible = visible_log_records(
+            &records,
+            start,
+            &self.log_view,
+            &excludes,
+            revealed.filter(|&id| selected == Some(id)),
+        );
         show_log_records(
             ui,
             &visible,
-            self.log_view.follow_tail,
+            follow_latest,
+            jump,
             &mut selected,
             &mut checked,
         );
         ui.data_mut(|data| {
+            data.insert_temp(follow_id, follow_latest);
             if let Some(selected) = selected {
                 data.insert_temp(selected_id, selected);
             } else {
                 data.remove::<usize>(selected_id);
+            }
+            if let Some(revealed) = revealed.filter(|id| {
+                selected == Some(*id) || (selected.is_none() && !captured.contains(id))
+            }) {
+                data.insert_temp(revealed_id, revealed);
+            } else {
+                data.remove::<usize>(revealed_id);
             }
             if !checked.is_empty() {
                 data.insert_temp(checked_id, checked);
             }
         });
     }
+}
 
-    pub(crate) fn show_log_toasts(&mut self, ui: &Ui) {
-        let records = self.log_capture.records_since(&mut self.log_toast_cursor);
-        if !self.egui_config.demo_mode && !records.is_empty() {
-            const LIFETIME: Duration = Duration::from_secs(5);
-            let network_id = ui.make_persistent_id("rest-transport-toast");
-            let mut network_notice = ui.data(|data| data.get_temp::<Instant>(network_id));
-            let mut messages = HashSet::new();
-            let mut recent = Vec::with_capacity(4);
-            for record in records.iter().rev() {
-                let Some((kind, message)) = log_toast(record) else {
-                    continue;
-                };
-                if record.level == LogLevel::Debug {
-                    if network_notice.is_some_and(|notice| notice.elapsed() < LIFETIME) {
-                        continue;
-                    }
-                    network_notice = Some(Instant::now());
-                }
-                if messages.insert(message) {
-                    recent.push((kind, message));
-                }
-                // The log table retains the full burst.
-                if recent.len() == 4 {
-                    break;
-                }
-            }
-            if let Some(network_notice) = network_notice {
-                ui.data_mut(|data| data.insert_temp(network_id, network_notice));
-            }
-            for (kind, message) in recent.into_iter().rev() {
-                let message = escape_display(message.lines().next().unwrap_or_default());
-                let mut short: String = message.chars().take(160).collect();
-                if short.len() < message.len() {
-                    short.push('…');
-                }
-                self.toasts.add(
-                    Toast::new()
-                        .kind(kind)
-                        .text(short)
-                        .options(ToastOptions::default().duration(LIFETIME).show_icon(true)),
-                );
-            }
-        }
-        // The capture layer is independent of the window and does not wake egui.
-        ui.ctx().request_repaint_after(Duration::from_millis(250));
-    }
+fn visible_log_records<'a>(
+    records: &'a [LogRecord],
+    start: usize,
+    view: &LogView,
+    exclusions: &[PortalLogExclusion<'_>],
+    revealed: Option<usize>,
+) -> Vec<(usize, &'a LogRecord)> {
+    records
+        .iter()
+        .enumerate()
+        .map(|(index, record)| (start + index, record))
+        .filter(|(id, record)| {
+            Some(*id) == revealed
+                || (view.matches(record) && !exclusions.iter().any(|filter| filter.matches(record)))
+        })
+        .collect()
 }
 
 fn show_log_records(
     ui: &mut Ui,
     visible: &[(usize, &LogRecord)],
     follow_latest: bool,
+    jump: Option<usize>,
     selected: &mut Option<usize>,
     checked: &mut HashSet<usize>,
 ) {
@@ -223,6 +226,13 @@ fn show_log_records(
         }
         tail.is_some() && tail != previous
     });
+    let row_pitch = ROW_HEIGHT + row_spacing;
+    let rows_height = visible.len() as f32 * row_pitch - row_spacing;
+    let max_offset = (rows_height - height).max(0.0);
+    let scroll_offset = jump
+        .and_then(|id| visible.binary_search_by_key(&id, |(id, _)| *id).ok())
+        .map(|row| ((row as f32 + 0.5) * row_pitch - height * 0.5).clamp(0.0, max_offset))
+        .or_else(|| jump_to_tail.then_some(max_offset));
 
     ui.push_id("log-table", |ui| {
         show_inventory_table(ui, |table| {
@@ -235,10 +245,9 @@ fn show_log_records(
                 .column(Column::initial(56.0).at_least(48.0).clip(true))
                 .column(Column::initial(156.0).at_least(80.0).clip(true))
                 .column(Column::remainder().at_least(60.0).clip(true));
-            let table = if jump_to_tail {
+            let table = if let Some(offset) = scroll_offset {
                 // Establish the offset before the table chooses which rows to draw.
-                let rows_height = visible.len() as f32 * (ROW_HEIGHT + row_spacing) - row_spacing;
-                table.vertical_scroll_offset((rows_height - height).max(0.0))
+                table.vertical_scroll_offset(offset)
             } else {
                 table
             };
@@ -344,37 +353,21 @@ fn selected_log_text(records: &[LogRecord], start: usize, checked: &HashSet<usiz
         .iter()
         .enumerate()
         .filter(|(index, _)| checked.contains(&(start + index)))
-        .map(|(_, record)| {
-            let timestamp = Timestamp::try_from(record.timestamp)
-                .map(|time| {
-                    time.to_zoned_datetime(TimeZone::system())
-                        .strftime("%Y-%m-%dT%H:%M:%S%.3f%:z")
-                        .to_string()
-                })
-                .unwrap_or_else(|_| "Unknown time".into());
-            let target = escape_display(&record.target);
-            format!("[{timestamp}] {target}\n{}", format_record_plain(record))
-        })
+        .map(|(_, record)| log_record_text(record))
         .collect::<Vec<_>>()
         .join("\n\n")
 }
 
-fn log_toast(record: &LogRecord) -> Option<(ToastKind, &str)> {
-    let kind = match record.level {
-        LogLevel::Info => ToastKind::Info,
-        LogLevel::Error => ToastKind::Error,
-        LogLevel::Debug
-            if record.target.starts_with("cloud_terrastodon_rest::")
-                && record.fields.iter().any(|(name, value)| {
-                    name == "network_request"
-                        && matches!(value, LogValue::Text(value) if value.as_str() == "true")
-                }) =>
-        {
-            return Some((ToastKind::Info, "Fetching a REST response"));
-        }
-        LogLevel::Trace | LogLevel::Debug | LogLevel::Warn => return None,
-    };
-    (!record.message.trim().is_empty()).then_some((kind, record.message.as_ref()))
+fn log_record_text(record: &LogRecord) -> String {
+    let timestamp = Timestamp::try_from(record.timestamp)
+        .map(|time| {
+            time.to_zoned_datetime(TimeZone::system())
+                .strftime("%Y-%m-%dT%H:%M:%S%.3f%:z")
+                .to_string()
+        })
+        .unwrap_or_else(|_| "Unknown time".into());
+    let target = escape_display(&record.target);
+    format!("[{timestamp}] {target}\n{}", format_record_plain(record))
 }
 
 fn show_record(ui: &mut Ui, record: &LogRecord) {
@@ -547,7 +540,7 @@ mod tests {
                 ..Default::default()
             };
             let mut output = context.run_ui(input, |ui| {
-                show_log_records(ui, &rows, follow, &mut None, &mut HashSet::new());
+                show_log_records(ui, &rows, follow, None, &mut None, &mut HashSet::new());
             });
             output.textures_delta.clear();
             output.shapes.iter().any(|clipped| {
@@ -566,7 +559,59 @@ mod tests {
     }
 
     #[test]
-    fn cache_replay_is_quiet_and_transport_uses_a_short_notification() {
+    fn jumping_to_a_filtered_log_reveals_it_at_the_requested_position() {
+        const START: usize = 300;
+        const TARGET: usize = START + 50;
+        const MESSAGE: &str = "Hidden record";
+        let context = Context::default();
+        let mut records: Vec<_> = (0..100)
+            .map(|index| synthetic_log(&format!("Visible record {index}")))
+            .collect();
+        records[TARGET - START] = synthetic_log(MESSAGE);
+        records[TARGET - START].level = LogLevel::Info;
+        let view = LogView {
+            filter: "Visible".to_owned(),
+            minimum_level: LogLevel::Warn,
+            ..Default::default()
+        };
+        let exclusions = PortalLogExclusion::parse_list("test[Hidden record]");
+        let draw = |revealed, jump| {
+            let visible = visible_log_records(&records, START, &view, &exclusions, revealed);
+            let input = RawInput {
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(640.0, 260.0))),
+                ..Default::default()
+            };
+            let mut selected = revealed;
+            let mut output = context.run_ui(input, |ui| {
+                show_log_records(
+                    ui,
+                    &visible,
+                    false,
+                    jump,
+                    &mut selected,
+                    &mut HashSet::new(),
+                );
+            });
+            output.textures_delta.clear();
+            output.shapes.iter().any(|clipped| {
+                matches!(&clipped.shape, Shape::Text(text) if text.galley.text() == MESSAGE
+                    && clipped.clip_rect.contains(text.visual_bounding_rect().center()))
+            })
+        };
+
+        let filtered = visible_log_records(&records, START, &view, &exclusions, None);
+        assert!(!filtered.iter().any(|(id, _)| *id == TARGET));
+        assert!(!draw(None, None));
+        assert!(draw(Some(TARGET), Some(TARGET)));
+        assert!(draw(Some(TARGET), None));
+    }
+
+    #[test]
+    fn rest_debug_events_stay_quiet() {
+        use crate::portal_log_toast::PortalLogToast;
+        use std::time::Instant;
+
+        let now = Instant::now();
         let mut record = LogRecord {
             timestamp: SystemTime::UNIX_EPOCH,
             level: LogLevel::Debug,
@@ -577,15 +622,12 @@ mod tests {
             file: None,
             line: None,
         };
-        assert!(log_toast(&record).is_none());
+        assert!(PortalLogToast::from_record(0, &record, now).is_none());
 
         record.message = Arc::from("Executing REST request");
         record
             .fields
             .push(("network_request".into(), LogValue::Text("true".into())));
-        assert_eq!(
-            log_toast(&record),
-            Some((ToastKind::Info, "Fetching a REST response"))
-        );
+        assert!(PortalLogToast::from_record(1, &record, now).is_none());
     }
 }

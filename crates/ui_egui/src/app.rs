@@ -10,6 +10,7 @@ use crate::local_path_preview::LocalPathPreview;
 use crate::portal_address::PortalAddress;
 use crate::portal_azure_content::PortalAzureContent;
 use crate::portal_history::PortalHistory;
+use crate::portal_log_toast::PortalLogToast;
 use crate::portal_page::PortalPage;
 use crate::portal_tab_id::PortalTabId;
 use crate::portal_tab_target::PortalTabTarget;
@@ -27,10 +28,8 @@ use cloud_terrastodon_config::WorkDirsConfig;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eframe::App;
 use eframe::Storage;
-use eframe::egui::Direction;
 use eframe::egui::Id;
 use eframe::egui::Ui;
-use egui_toast::Toasts;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -68,6 +67,8 @@ pub struct MyApp {
     pub log_capture: LogBuffer,
     pub log_view: LogView,
     pub(crate) log_toast_cursor: usize,
+    pub(crate) log_toasts: Vec<PortalLogToast>,
+    pub(crate) pending_log_jumps: HashMap<PortalTabId, usize>,
     pub(crate) tabs: PortalTabs,
     pub(crate) portal_address: Option<PortalAddress>,
     pub(crate) portal_history: PortalHistory,
@@ -80,8 +81,6 @@ pub struct MyApp {
     pub egui_config_auto_save: AutoSaveBehaviour<EguiConfig>,
     pub work_dirs_config: WorkDirsConfig,
     pub work_dirs_config_auto_save: AutoSaveBehaviour<WorkDirsConfig>,
-    /// Toasts manager for transient notifications
-    pub toasts: Toasts,
     pub work_tracker: AppWorkTracker,
     /// Transfers final settings to the owner for saving after earlier jobs drain.
     pub shutdown_settings: SyncSender<(EguiConfig, WorkDirsConfig)>,
@@ -151,6 +150,8 @@ impl MyApp {
             log_capture,
             log_view: LogView::default(),
             log_toast_cursor,
+            log_toasts: Vec::new(),
+            pending_log_jumps: HashMap::new(),
             tabs,
             portal_address: None,
             portal_history: PortalHistory::default(),
@@ -163,7 +164,6 @@ impl MyApp {
             egui_config_auto_save: Default::default(),
             work_dirs_config: WorkDirsConfig::load().await?,
             work_dirs_config_auto_save: Default::default(),
-            toasts: Toasts::new().direction(Direction::BottomUp),
             work_tracker,
             shutdown_settings,
             app_info,
@@ -271,11 +271,12 @@ impl MyApp {
         }
     }
 
-    pub(crate) fn open_background_tab(&mut self, target: PortalTabTarget) {
+    pub(crate) fn open_background_tab(&mut self, target: PortalTabTarget) -> PortalTabId {
         let source = self.tabs.active_id();
         let tab = self.tabs.open_background(target.clone());
         self.seed_azure_content(tab, source);
         self.record_portal_visit_to(target);
+        tab
     }
 
     pub fn current_page(&self) -> PortalPage {
@@ -287,6 +288,8 @@ impl MyApp {
         self.azure_tabs.retain(|id, _| self.tabs.retains_tab(*id));
         self.account_picker
             .retain_tabs(|id| self.tabs.tab(id).is_some());
+        self.pending_log_jumps
+            .retain(|id, _| self.tabs.tab(*id).is_some());
         self.local_path_previews
             .retain(|path, _| self.tabs.has_local_path(path));
         for content in std::iter::once(&mut self.azure).chain(self.azure_tabs.values_mut()) {

@@ -100,6 +100,7 @@ mod portal_history_entry;
 mod portal_history_ui;
 pub mod portal_home;
 mod portal_log_exclusion;
+mod portal_log_toast;
 mod portal_log_ui;
 pub mod portal_navigation;
 mod portal_omnibox;

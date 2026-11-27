@@ -1732,7 +1732,6 @@ dependencies = [
  "cloud_terrastodon_zombies",
  "crossterm",
  "eframe",
- "egui-toast",
  "egui_extras",
  "eyre",
  "image",
@@ -2454,15 +2453,6 @@ dependencies = [
  "smallvec 1.15.2",
  "unicode-segmentation",
  "web-sys",
-]
-
-[[package]]
-name = "egui-toast"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3df032159d3428ab76bdb8c580b2f807cc10976cc09e815abdce74d640f7c0f"
-dependencies = [
- "egui",
 ]
 
 [[package]]

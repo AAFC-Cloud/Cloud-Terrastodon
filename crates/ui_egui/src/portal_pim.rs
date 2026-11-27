@@ -77,7 +77,9 @@ pub(crate) fn show_portal_pim(app: &mut MyApp, ui: &mut Ui, page: PortalPage) {
             ui.ctx().request_repaint();
             return;
         }
-        Some(PortalTabOpen::Background(target)) => app.open_background_tab(target),
+        Some(PortalTabOpen::Background(target)) => {
+            app.open_background_tab(target);
+        }
         None => {}
     }
 

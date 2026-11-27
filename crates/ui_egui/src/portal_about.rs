@@ -20,7 +20,9 @@ pub(crate) fn show_portal_about(app: &mut MyApp, ui: &mut Ui, target: &PortalTab
             app.navigate_current_tab(target);
             return;
         }
-        Some(PortalTabOpen::Background(target)) => app.open_background_tab(target),
+        Some(PortalTabOpen::Background(target)) => {
+            app.open_background_tab(target);
+        }
         None => {}
     }
 
