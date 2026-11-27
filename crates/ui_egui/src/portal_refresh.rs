@@ -425,7 +425,8 @@ impl MyApp {
                     &self.executor,
                     &self.work_cache,
                     ui.ctx(),
-                )
+                );
+                self.handle_account_picker_action(AzureAccountPickerAction::Reload, ui.ctx());
             }
             PortalTabTarget::LocalPath(path) => load_local_path(self, path),
             PortalTabTarget::Page(

@@ -1,3 +1,4 @@
+use crate::capture_gui_failure::capture_gui_failure;
 use crate::scope_iam_ancestry::ScopeIamAncestry;
 use crate::scope_iam_ancestry::scope_key;
 use crate::scope_iam_snapshot::ScopeIamSnapshot;
@@ -165,9 +166,18 @@ impl ScopeIamInventory {
             .map(|role| (*role.id.name(), role.display_name.clone()))
             .collect();
         Self {
-            assignments: assignments.map_err(DiagnosticReport::new),
-            role_definitions: role_definitions.map_err(DiagnosticReport::new),
-            subscriptions: subscriptions.map_err(DiagnosticReport::new),
+            assignments: assignments.map_err(|error| {
+                capture_gui_failure(error, "Could not load Azure role assignments")
+            }),
+            role_definitions: role_definitions.map_err(|error| {
+                capture_gui_failure(error, "Could not load Azure role definitions")
+            }),
+            subscriptions: subscriptions.map_err(|error| {
+                capture_gui_failure(
+                    error,
+                    "Could not load subscription ancestry for Azure access control",
+                )
+            }),
             management_groups,
             scope_names,
             role_names,
@@ -185,8 +195,9 @@ impl ScopeIamInventory {
                 Ok(&[][..])
             };
         let ancestry = subscriptions.and_then(|subscriptions| {
-            ScopeIamAncestry::new(scope, subscriptions, &self.management_groups)
-                .map_err(DiagnosticReport::new)
+            ScopeIamAncestry::new(scope, subscriptions, &self.management_groups).map_err(|error| {
+                capture_gui_failure(error, "Could not resolve scoped Azure access control")
+            })
         });
         let assignments = self
             .assignments

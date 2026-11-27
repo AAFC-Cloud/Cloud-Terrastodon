@@ -13,7 +13,8 @@ impl AccountSignInPrompt {
     /// Microsoft Entra's public-cloud device sign-in page.
     pub const AZURE_CLI_DEVICE_SIGN_IN_URL: &'static str = "https://aka.ms/devicelogin";
 
-    pub(crate) fn print(self) {
+    /// Write the interactive sign-in instructions to stderr.
+    pub fn print(self) {
         match self {
             Self::BrowserAuthorization { url } => {
                 eprintln!(

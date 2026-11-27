@@ -24,6 +24,7 @@ use eyre::Result;
 /// An account detail view owns the credential drafts and confirmation for that account.
 pub(crate) struct AzureAccountDetails {
     id: CloudTerrastodonAccountId,
+    rename_alias: Option<String>,
     browser_client_id: Option<String>,
     personal_access_token: Option<String>,
     confirmation: Option<AzureAccountConfirmation>,
@@ -37,6 +38,7 @@ impl AzureAccountDetails {
     pub fn new(id: CloudTerrastodonAccountId) -> Self {
         Self {
             id,
+            rename_alias: None,
             browser_client_id: None,
             personal_access_token: None,
             confirmation: None,
@@ -54,6 +56,7 @@ impl AzureAccountDetails {
     }
 
     pub fn clear_drafts(&mut self) {
+        self.rename_alias = None;
         self.browser_client_id = None;
         self.personal_access_token = None;
         self.confirmation = None;
@@ -69,7 +72,16 @@ impl AzureAccountDetails {
             ui.label("This account is no longer registered.");
             return Ok(None);
         };
-        ui.heading(account.alias.as_str());
+        let rename_clicked = ui
+            .horizontal_wrapped(|ui| {
+                ui.heading(account.alias.as_str());
+                self.rename_alias.is_none() && ui.button("Rename account").clicked()
+            })
+            .inner;
+        if rename_clicked {
+            self.clear_drafts();
+            self.rename_alias = Some(account.alias.as_str().to_owned());
+        }
         ui.label(Self::namespace_label(&account.namespace));
         ui.label(format!("Account ID · {}", account.id));
         match account.principal {
@@ -82,6 +94,39 @@ impl AzureAccountDetails {
             None => {}
         }
 
+        if let Some(draft) = &mut self.rename_alias {
+            let label = ui.label("New alias");
+            let id = ui.make_persistent_id(("account-rename-alias", account.id));
+            let input = ui
+                .add(TextEdit::singleline(draft).id(id))
+                .labelled_by(label.id);
+            if rename_clicked {
+                input.request_focus();
+            }
+            let alias = draft.trim();
+            let changed = alias != account.alias.as_str();
+            let enter = input.lost_focus() && ui.input(|input| input.key_pressed(Key::Enter));
+            let (save, cancel) = ui
+                .horizontal(|ui| {
+                    (
+                        ui.add_enabled(changed, Button::new("Save")).clicked(),
+                        ui.button("Cancel").clicked(),
+                    )
+                })
+                .inner;
+            if cancel {
+                self.rename_alias = None;
+            } else if changed && (save || enter) {
+                let alias = alias.parse()?;
+                self.rename_alias = None;
+                return Ok(Some(AzureAccountAction::Rename {
+                    account_id: account.id,
+                    alias,
+                }));
+            }
+            return Ok(None);
+        }
+
         if let Some(confirmation) = self.confirmation
             && confirmation.is_available(account)
         {
@@ -89,19 +134,26 @@ impl AzureAccountDetails {
         }
         self.confirmation = None;
 
+        let manages_service_default = matches!(
+            account.namespace,
+            CloudTerrastodonAccountNamespace::AzureDevOps { .. }
+                | CloudTerrastodonAccountNamespace::Gitea { .. }
+        );
         let is_default = catalogue
             .defaults
             .iter()
             .any(|default| default.account_id == account.id);
         let account_action = ui
             .horizontal_wrapped(|ui| {
-                if is_default {
-                    ui.label("Default account");
-                    if ui.button("Clear default").clicked() {
-                        return Some(AzureAccountAction::ClearDefault(account.id));
+                if manages_service_default {
+                    if is_default {
+                        ui.label("Default account");
+                        if ui.button("Clear default").clicked() {
+                            return Some(AzureAccountAction::ClearDefault(account.id));
+                        }
+                    } else if ui.button("Set as default").clicked() {
+                        return Some(AzureAccountAction::SetDefault(account.id));
                     }
-                } else if ui.button("Set as default").clicked() {
-                    return Some(AzureAccountAction::SetDefault(account.id));
                 }
                 if account.credentials.len() > 1
                     && account.credentials.iter().any(|registration| {

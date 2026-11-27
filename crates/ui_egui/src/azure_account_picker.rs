@@ -3,6 +3,7 @@ use crate::azure_account_picker_action::AzureAccountPickerAction;
 use crate::azure_account_profile::AzureAccountProfile;
 use crate::azure_account_profiles::AzureAccountProfiles;
 use crate::azure_account_registration_form::source_label;
+use crate::capture_gui_failure::capture_gui_failure;
 use crate::portal_tab_id::PortalTabId;
 use cloud_terrastodon_auth::CloudTerrastodonAccountCatalogue;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
@@ -59,7 +60,9 @@ pub struct AzureAccountPicker {
 impl AzureAccountPicker {
     pub fn new(store: &CloudTerrastodonAccountStore) -> Self {
         Self {
-            catalogue: store.load().map_err(DiagnosticReport::new),
+            catalogue: store
+                .load()
+                .map_err(|error| capture_gui_failure(error, "Could not load account catalogue")),
             selection_errors: HashMap::new(),
             open_requested: HashSet::new(),
         }
@@ -80,6 +83,10 @@ impl AzureAccountPicker {
         } else {
             self.selection_errors.remove(&Self::page_instance(tab));
         }
+    }
+
+    pub(crate) fn selection_error(&self, tab: PortalTabId) -> Option<&DiagnosticReport> {
+        self.selection_errors.get(&Self::page_instance(tab))
     }
 
     pub(crate) fn retain_tabs(&mut self, is_open: impl Fn(PortalTabId) -> bool) {

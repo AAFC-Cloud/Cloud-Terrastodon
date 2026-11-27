@@ -5,6 +5,7 @@ use crate::azure_account_picker::AzureAccountPicker;
 use crate::azure_account_profiles::AzureAccountProfiles;
 use crate::azure_devops_organization_picker::AzureDevOpsOrganizationPicker;
 use crate::azure_tenant_manager::AzureTenantManager;
+use crate::capture_gui_failure::capture_gui_failure;
 use crate::gui_work_cache::GuiWorkCache;
 use crate::local_path_preview::LocalPathPreview;
 use crate::portal_address::PortalAddress;
@@ -64,6 +65,7 @@ pub struct MyApp {
     pub(crate) account_authentication: Arc<CredentialAuthenticationProvider>,
     pub(crate) account_manager: AzureAccountManager,
     pub(crate) account_operation: Option<AzureAccountOperation>,
+    pub(crate) account_sign_in_failure: Option<DiagnosticReport>,
     pub(crate) tenant_manager: AzureTenantManager,
     /// Shared bounded history owned by the application, not a second GUI collector.
     pub log_capture: LogBuffer,
@@ -110,8 +112,13 @@ impl MyApp {
         let authentication = match authentication {
             Ok(selection) => selection,
             Err(error) => {
-                account_picker
-                    .set_selection_error(PortalTabId(0), Some(DiagnosticReport::new(error)));
+                account_picker.set_selection_error(
+                    PortalTabId(0),
+                    Some(capture_gui_failure(
+                        error,
+                        "Could not select the initial Azure account",
+                    )),
+                );
                 None
             }
         };
@@ -149,6 +156,7 @@ impl MyApp {
             account_authentication,
             account_manager: AzureAccountManager::default(),
             account_operation: None,
+            account_sign_in_failure: None,
             tenant_manager: AzureTenantManager::default(),
             log_capture,
             log_view: LogView::default(),

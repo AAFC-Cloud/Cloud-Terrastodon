@@ -1,3 +1,4 @@
+use crate::capture_gui_failure::capture_gui_failure;
 use cloud_terrastodon_azure::AzureTenantAlias;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::get_default_tenant_id;
@@ -28,7 +29,10 @@ impl AzureTrackedTenantCatalogue {
                 Ok(None)
             }
             // A bad default is recoverable by choosing another tenant.
-            Err(error) => Err(DiagnosticReport::new(error)),
+            Err(error) => Err(capture_gui_failure(
+                error,
+                "Could not load the default tenant",
+            )),
         };
         Ok(Self { tenants, default })
     }

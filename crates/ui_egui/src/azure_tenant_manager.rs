@@ -1,9 +1,11 @@
+use crate::azure_account_action::AzureAccountAction;
 use crate::azure_tenant_management_action::AzureTenantManagementAction;
 use crate::azure_tenant_management_target::AzureTenantManagementTarget;
 use crate::azure_tenant_management_update::AzureTenantManagementResult;
 use crate::azure_tenant_management_update::AzureTenantManagementUpdate;
 use crate::azure_tracked_tenant_catalogue::AzureTrackedTenantCatalogue;
 use crate::azure_tracked_tenant_row::AzureTrackedTenantRow;
+use crate::capture_gui_failure::capture_gui_failure;
 use crate::gui_work_cache::GuiWorkCache;
 use crate::icons::page_icon;
 use crate::inventory_table::show_inventory_result_count;
@@ -11,7 +13,10 @@ use crate::portal_page::PortalPage;
 use crate::portal_tab_open::PortalTabOpen;
 use crate::reflected_table::ReflectedTable;
 use crate::reflected_table_column::ReflectedTableColumn;
+use cloud_terrastodon_auth::CloudTerrastodonAccountCatalogue;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountNamespace;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountProfile;
 use cloud_terrastodon_azure::AzureTenantAlias;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::MicrosoftGraphOrganization;
@@ -20,6 +25,7 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eframe::egui::Button;
 use eframe::egui::CollapsingHeader;
 use eframe::egui::Color32;
+use eframe::egui::ComboBox;
 use eframe::egui::Context;
 use eframe::egui::Id;
 use eframe::egui::ScrollArea;
@@ -136,6 +142,7 @@ impl AzureTenantManager {
         tracker: &AppWorkTracker,
         executor: &CloudTerrastodonExecutor,
         work_cache: &GuiWorkCache,
+        accounts: Option<&CloudTerrastodonAccountCatalogue>,
     ) -> Option<PortalTabOpen> {
         self.load_catalogue_if_needed(tracker, executor, work_cache, ui.ctx());
         self.show_status(ui, None);
@@ -145,9 +152,13 @@ impl AzureTenantManager {
         {
             self.start(action, tracker, executor, work_cache, ui.ctx());
         }
-        self.show_catalogue(ui)
+        self.show_catalogue(ui, accounts)
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "tenant view needs both catalogues and explicit request dependencies"
+    )]
     pub(crate) fn show_tenant(
         &mut self,
         ui: &mut Ui,
@@ -156,9 +167,10 @@ impl AzureTenantManager {
         executor: &CloudTerrastodonExecutor,
         work_cache: &GuiWorkCache,
         authentication: Option<AzureBearerAuthenticationSelection>,
-    ) {
+        accounts: Option<&CloudTerrastodonAccountCatalogue>,
+    ) -> Option<AzureAccountAction> {
         self.load_catalogue_if_needed(tracker, executor, work_cache, ui.ctx());
-        let action = ScrollArea::vertical()
+        let (tenant_action, account_action) = ScrollArea::vertical()
             .id_salt(("tenant-management", tenant))
             .show(ui, |ui| {
                 ui.set_max_width(ui.available_width().min(820.0));
@@ -168,14 +180,16 @@ impl AzureTenantManager {
                 });
                 self.show_status(ui, Some((tenant, authentication)));
                 ui.add_enabled_ui(self.pending.is_none(), |ui| {
-                    self.show_tenant_panel(ui, tenant, authentication)
+                    self.show_tenant_panel(ui, tenant, authentication, accounts)
                 })
                 .inner
             })
             .inner;
-        if let Some(action) = action {
+        if let Some(action) = tenant_action {
             self.start(action, tracker, executor, work_cache, ui.ctx());
+            return None;
         }
+        account_action
     }
 
     fn show_status(
@@ -212,11 +226,17 @@ impl AzureTenantManager {
         ui: &mut Ui,
         tenant: AzureTenantId,
         authentication: Option<AzureBearerAuthenticationSelection>,
-    ) -> Option<AzureTenantManagementAction> {
-        let catalogue = self.catalogue.as_ref()?;
+        accounts: Option<&CloudTerrastodonAccountCatalogue>,
+    ) -> (
+        Option<AzureTenantManagementAction>,
+        Option<AzureAccountAction>,
+    ) {
+        let Some(catalogue) = &self.catalogue else {
+            return (None, None);
+        };
         let Some((_, aliases)) = catalogue.tenants.iter().find(|(id, _)| *id == tenant) else {
             ui.label("This tenant is no longer tracked.");
-            return None;
+            return (None, None);
         };
         let is_default = catalogue
             .default
@@ -225,13 +245,18 @@ impl AzureTenantManager {
         if is_default {
             ui.label("Default tenant");
         }
+        let account_action =
+            accounts.and_then(|accounts| show_default_account(ui, tenant, accounts));
         if let Some(name) = self.directory_name(tenant, authentication) {
             ui.horizontal(|ui| {
                 ui.label("Directory name");
                 ui.label(name);
             });
         }
-        self.show_tenant_actions(ui, tenant, is_default, authentication, aliases)
+        (
+            self.show_tenant_actions(ui, tenant, is_default, authentication, aliases),
+            account_action,
+        )
     }
 
     fn show_toolbar(&mut self, ui: &mut Ui) -> Option<AzureTenantManagementAction> {
@@ -257,7 +282,11 @@ impl AzureTenantManager {
         .inner
     }
 
-    fn show_catalogue(&self, ui: &mut Ui) -> Option<PortalTabOpen> {
+    fn show_catalogue(
+        &self,
+        ui: &mut Ui,
+        accounts: Option<&CloudTerrastodonAccountCatalogue>,
+    ) -> Option<PortalTabOpen> {
         let catalogue = self.catalogue.as_ref()?;
         let default = match &catalogue.default {
             Ok(default) => *default,
@@ -295,13 +324,20 @@ impl AzureTenantManager {
                 .with_icon(|_, _| Some(page_icon(PortalPage::AzureTenants)))
                 .with_link("tenant_id"),
             ReflectedTableColumn::new("Aliases", "aliases"),
-            ReflectedTableColumn::new("Default", "default").with_width(96.0),
+            ReflectedTableColumn::new("Default tenant", "default_tenant").with_width(100.0),
+            ReflectedTableColumn::new("Default account", "default_account").with_width(156.0),
         ];
         let rows: Vec<_> = catalogue
             .tenants
             .iter()
             .map(|(tenant, aliases)| {
-                AzureTrackedTenantRow::new(*tenant, aliases, default == Some(*tenant))
+                let account = accounts.and_then(|catalogue| default_account(catalogue, *tenant));
+                AzureTrackedTenantRow::new(
+                    *tenant,
+                    aliases,
+                    default == Some(*tenant),
+                    account.map(|account| account.alias.clone()),
+                )
             })
             .collect();
         ReflectedTable::new(id, &columns)
@@ -324,7 +360,7 @@ impl AzureTenantManager {
         let action = ui
             .horizontal_wrapped(|ui| {
                 if ui
-                    .add_enabled(!is_default, Button::new("Set as default"))
+                    .add_enabled(!is_default, Button::new("Set as default tenant"))
                     .clicked()
                 {
                     return Some(AzureTenantManagementAction::SetDefault(tenant));
@@ -472,7 +508,12 @@ impl AzureTenantManager {
                 self.error = None;
                 self.pending = Some((target, receive));
             }
-            Err(error) => self.error = Some((target, DiagnosticReport::new(error))),
+            Err(error) => {
+                self.error = Some((
+                    target,
+                    capture_gui_failure(error, "Could not start tenant operation"),
+                ));
+            }
         }
     }
 
@@ -486,7 +527,10 @@ impl AzureTenantManager {
             Err(TryRecvError::Closed) => {
                 self.error = Some((
                     *target,
-                    DiagnosticReport::new(eyre::eyre!("Tenant operation was interrupted")),
+                    capture_gui_failure(
+                        eyre::eyre!("The tenant operation ended without returning a result"),
+                        "Tenant operation was interrupted",
+                    ),
                 ));
             }
             Ok(Err(error)) => self.error = Some((*target, error)),
@@ -505,12 +549,113 @@ impl AzureTenantManager {
     }
 }
 
+fn default_account(
+    catalogue: &CloudTerrastodonAccountCatalogue,
+    tenant_id: AzureTenantId,
+) -> Option<&CloudTerrastodonAccountProfile> {
+    catalogue
+        .resolve(
+            None,
+            Some(&CloudTerrastodonAccountNamespace::Entra { tenant_id }),
+        )
+        .ok()
+}
+
+fn tenant_accounts(
+    catalogue: &CloudTerrastodonAccountCatalogue,
+    tenant_id: AzureTenantId,
+) -> Vec<&CloudTerrastodonAccountProfile> {
+    let namespace = CloudTerrastodonAccountNamespace::Entra { tenant_id };
+    let mut accounts: Vec<_> = catalogue
+        .accounts
+        .iter()
+        .filter(|account| account.namespace == namespace)
+        .collect();
+    accounts.sort_unstable_by(|left, right| left.alias.as_str().cmp(right.alias.as_str()));
+    accounts
+}
+
+fn show_default_account(
+    ui: &mut Ui,
+    tenant: AzureTenantId,
+    catalogue: &CloudTerrastodonAccountCatalogue,
+) -> Option<AzureAccountAction> {
+    let accounts = tenant_accounts(catalogue, tenant);
+    let default = default_account(catalogue, tenant);
+    let default_id = default.map(|account| account.id);
+    let mut selection = default_id;
+    ui.horizontal_wrapped(|ui| {
+        let label = ui.label("Default account");
+        if accounts.is_empty() {
+            ui.weak("No accounts registered for this tenant");
+            return;
+        }
+        ComboBox::from_id_salt(("tenant-default-account", tenant))
+            .selected_text(default.map_or("None", |account| account.alias.as_str()))
+            .show_ui(ui, |ui| {
+                ui.selectable_value(&mut selection, None, "None");
+                for account in accounts {
+                    ui.selectable_value(&mut selection, Some(account.id), account.alias.as_str());
+                }
+            })
+            .response
+            .labelled_by(label.id);
+    });
+    if selection == default_id {
+        return None;
+    }
+    match selection {
+        Some(id) => Some(AzureAccountAction::SetDefault(id)),
+        None => default_id.map(AzureAccountAction::ClearDefault),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_auth::CloudTerrastodonAccountDefault;
     use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+    use cloud_terrastodon_auth_types::CloudTerrastodonAccountCredential;
     use cloud_terrastodon_azure::MicrosoftGraphDirectoryObject;
     use cloud_terrastodon_azure::MicrosoftGraphEntity;
+
+    #[test]
+    fn tenant_default_account_choices_keep_same_aliases_in_their_own_tenants() -> eyre::Result<()> {
+        let alpha = "00000000-0000-0000-0000-000000000001".parse()?;
+        let beta = "00000000-0000-0000-0000-000000000002".parse()?;
+        let alpha_admin = CloudTerrastodonAccountProfile::new(
+            "00000000-0000-0000-0000-000000000003".parse()?,
+            "admin".parse()?,
+            CloudTerrastodonAccountCredential::AzureCli { tenant_id: alpha },
+        );
+        let beta_admin = CloudTerrastodonAccountProfile::new(
+            "00000000-0000-0000-0000-000000000004".parse()?,
+            "admin".parse()?,
+            CloudTerrastodonAccountCredential::AzureCli { tenant_id: beta },
+        );
+        let catalogue = CloudTerrastodonAccountCatalogue {
+            defaults: vec![CloudTerrastodonAccountDefault {
+                namespace: alpha_admin.namespace.clone(),
+                account_id: alpha_admin.id,
+            }],
+            accounts: vec![alpha_admin.clone(), beta_admin.clone()],
+            ..Default::default()
+        };
+        let candidates = |tenant| {
+            tenant_accounts(&catalogue, tenant)
+                .into_iter()
+                .map(|account| account.id)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(candidates(alpha), [alpha_admin.id]);
+        assert_eq!(candidates(beta), [beta_admin.id]);
+        assert_eq!(
+            default_account(&catalogue, alpha).map(|account| account.id),
+            Some(alpha_admin.id)
+        );
+        assert!(default_account(&catalogue, beta).is_none());
+        Ok(())
+    }
 
     #[test]
     fn switching_accounts_preserves_catalogue_work() -> eyre::Result<()> {

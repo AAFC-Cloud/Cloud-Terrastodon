@@ -144,6 +144,40 @@ impl CloudTerrastodonAccountStore {
         Ok(profile)
     }
 
+    /// Change an account's alias within its existing namespace.
+    pub async fn rename(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+        alias: CloudTerrastodonAccountAlias,
+        cancellation: &CancellationScope,
+    ) -> Result<CloudTerrastodonAccountProfile> {
+        let _lease = self.lock(cancellation).await?;
+        let mut catalogue = self.load()?;
+        let Some(index) = catalogue
+            .accounts
+            .iter()
+            .position(|account| account.id == account_id)
+        else {
+            bail!("account {account_id} is not registered");
+        };
+        let account = &catalogue.accounts[index];
+        if account.alias == alias {
+            return Ok(account.clone());
+        }
+        ensure!(
+            !catalogue
+                .accounts
+                .iter()
+                .any(|other| { other.namespace == account.namespace && other.alias == alias }),
+            "account alias {alias:?} already exists in this tenant or service",
+            alias = alias.as_str(),
+        );
+
+        catalogue.accounts[index].alias = alias;
+        cancellation.with_deferral("renaming an account", |_| self.save(&catalogue))?;
+        Ok(catalogue.accounts.swap_remove(index))
+    }
+
     pub async fn set_default(
         &self,
         account_id: CloudTerrastodonAccountId,
@@ -956,7 +990,7 @@ impl CloudTerrastodonAccountStore {
             account.as_ref(),
             Some(&CloudTerrastodonAccountNamespace::Entra { tenant_id }),
         )?;
-        Self::azure_selection_for_profile(profile, source)
+        profile.azure_bearer_selection(source)
     }
 
     /// Resolve an explicit Entra account, using its registered tenant rather
@@ -976,27 +1010,7 @@ impl CloudTerrastodonAccountStore {
             |namespace| matches!(namespace, CloudTerrastodonAccountNamespace::Entra { .. }),
             " among Entra accounts",
         )?;
-        Self::azure_selection_for_profile(profile, source)
-    }
-
-    fn azure_selection_for_profile(
-        profile: &CloudTerrastodonAccountProfile,
-        source: AuthSource,
-    ) -> Result<AzureBearerAuthenticationSelection> {
-        let CloudTerrastodonAccountNamespace::Entra { tenant_id } = profile.namespace else {
-            bail!("the selected account does not support Entra authentication");
-        };
-        let source = profile
-            .select_source(source)?
-            .auth_source()
-            .ok_or_else(|| {
-                eyre::eyre!("the selected account does not support Entra authentication")
-            })?;
-        Ok(AzureBearerAuthenticationSelection {
-            account_id: profile.id,
-            auth_source: source.try_into()?,
-            tenant_id,
-        })
+        profile.azure_bearer_selection(source)
     }
 
     /// Resolve an explicit Entra tenant, an account's tenant, or a PAT account
@@ -1061,7 +1075,7 @@ impl CloudTerrastodonAccountStore {
             CloudTerrastodonAccountNamespace::Entra { .. }
         ) {
             return Ok(AzureDevOpsAuthSelection::Bearer(
-                Self::azure_selection_for_profile(profile, source)?,
+                profile.azure_bearer_selection(source)?,
             ));
         }
         ensure!(
@@ -1215,6 +1229,74 @@ mod tests {
     use cloud_terrastodon_azure_types::EntraApplicationClientId;
     use cloud_terrastodon_cache::WorkCache;
     use cloud_terrastodon_command::CancellationToken;
+    #[tokio::test]
+    async fn rename_preserves_account_identity_and_enforces_namespace_uniqueness() -> Result<()> {
+        let directory = tempfile::tempdir()?;
+        let store = CloudTerrastodonAccountStore::new(directory.path().join("accounts"))?;
+        let tenant_id = AzureTenantId::new(Uuid::from_u128(1));
+        CancellationToken::new()
+            .with_async_scope(async |scope| {
+                let credential = CloudTerrastodonAccountCredential::AzureCli { tenant_id };
+                let account = store
+                    .add("operator".parse()?, credential.clone(), &scope)
+                    .await?;
+                store.add("reserved".parse()?, credential, &scope).await?;
+                let other_tenant = store
+                    .add(
+                        "admin".parse()?,
+                        CloudTerrastodonAccountCredential::AzureCli {
+                            tenant_id: AzureTenantId::new(Uuid::from_u128(2)),
+                        },
+                        &scope,
+                    )
+                    .await?;
+                store.set_default(account.id, &scope).await?;
+                let mut catalogue = store.load()?;
+                let profile = &mut catalogue.accounts[0];
+                profile.verify_principal(CloudTerrastodonAccountPrincipal::EntraUser(
+                    cloud_terrastodon_azure_types::EntraUserId::new(Uuid::from_u128(3)),
+                ))?;
+                profile
+                    .registration_mut(CloudTerrastodonCredentialSource::AzureCli)?
+                    .session = CloudTerrastodonAccountSession::Active {
+                    generation: Uuid::from_u128(4),
+                };
+                let mut expected = profile.clone();
+                store.save(&catalogue)?;
+
+                let duplicate = store.rename(account.id, "reserved".parse()?, &scope).await;
+                assert!(
+                    duplicate
+                        .unwrap_err()
+                        .to_string()
+                        .contains("already exists")
+                );
+                assert_eq!(store.load()?.by_id(account.id)?, &expected);
+
+                expected.alias = "admin".parse()?;
+                assert_eq!(
+                    store
+                        .rename(account.id, expected.alias.clone(), &scope)
+                        .await?,
+                    expected
+                );
+                let saved = store.load()?;
+                assert_eq!(saved.resolve(None, Some(&account.namespace))?, &expected);
+                assert_eq!(
+                    saved.resolve(Some(&"admin".parse()?), Some(&account.namespace))?,
+                    &expected
+                );
+                assert!(
+                    saved
+                        .resolve(Some(&"operator".parse()?), Some(&account.namespace))
+                        .is_err()
+                );
+                assert_eq!(saved.by_id(other_tenant.id)?, &other_tenant);
+                eyre::Ok(())
+            })
+            .await
+    }
+
 
     #[tokio::test]
     async fn device_code_sign_in_requires_registered_azure_cli_credentials() -> Result<()> {

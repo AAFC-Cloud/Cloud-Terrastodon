@@ -26,9 +26,10 @@ selection and can change independently.
 **Manage accounts** opens **About → Accounts**. The table lists every registration,
 including Azure DevOps PAT and Gitea accounts. **Add account** registers a
 credential mechanism. Select an account in the tab to sign in, add or change its
-preferred source, set or clear its default, import a legacy session, sign out,
-or remove it. Open **DevOps organizations** from the sidebar and select an
-organization to browse its **Projects**. The organization workspace lets you use
+preferred source, import a legacy session, rename it, sign out, or remove it. Manage
+Azure DevOps and Gitea defaults in their account details. Open **DevOps
+organizations** from the sidebar and select an organization to browse its
+**Projects**. The organization workspace lets you use
 an Azure account or a signed-in PAT account for that organization. Its breadcrumbs
 lead back to the organization and the organization list. Ctrl-click a navigation
 item or link to open it in a background preview tab.
@@ -41,8 +42,17 @@ For an existing Azure CLI session, choose **Replace using device code** in the
 After signing in, you can retry in the same window. Use **Reload** to pick up
 account changes made in the CLI.
 
-Open **About → Azure tenants** to browse tracked tenant IDs and their aliases.
-Select a row to edit aliases, set the default tenant, or forget that tenant.
+Use `ct account rename <account> <new-name>` to change an alias from the CLI.
+The account's ID, credentials, and defaults remain associated with it.
+To force device-code sign-in, use
+`ct account login <account> --source azure-cli --device-code`. Add
+`--reauthenticate` to replace an existing Entra session.
+
+Open **About → Azure tenants** to browse tracked tenant IDs, their aliases, and
+their default accounts. Open a tenant to set it as the **Default tenant** and
+choose its **Default account** from the registrations in that tenant. Choose
+**None** to clear that tenant's account default. You can also edit aliases or
+forget the tenant from its details page.
 Track a new tenant before
 registering an account in it. **Discover from Azure CLI** reads the local Azure
 CLI account list. **Load directory details** uses the selected Azure account if
@@ -146,9 +156,13 @@ Pass a cloud organization name or the full organization or collection URL.
 `--tenant` is optional. Running `add` again updates the saved tenant and
 omitting it clears the association. These commands manage the local catalogue.
 Azure DevOps requests still select credentials and organization scope
-explicitly. The desktop **DevOps organizations** page dims organizations with a
-known tenant different from the selected Azure account's tenant. Use the desktop
-toolbar refresh to reload the catalogue after CLI changes.
+explicitly. In the desktop **DevOps organizations** page, **Track organization**
+saves to the same catalogue. Open an organization's **Overview** to edit its
+tenant association or forget it. Opening an organization from the list selects
+the configured default account for its saved Entra tenant. An organization
+without a tenant uses its configured PAT default when available. The automatic
+selection applies to the opened tab. Use the desktop toolbar refresh to reload
+the catalogue after CLI changes.
 
 ## Several mechanisms for one account
 

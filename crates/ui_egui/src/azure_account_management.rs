@@ -6,6 +6,7 @@ use crate::azure_account_operation_origin::AzureAccountOperationOrigin;
 use crate::azure_account_picker::AzureAccountPicker;
 use crate::azure_account_picker_action::AzureAccountPickerAction;
 use crate::azure_account_sign_in_method::AzureAccountSignInMethod;
+use crate::capture_gui_failure::capture_gui_failure;
 use crate::portal_page::PortalPage;
 use crate::portal_tab_id::PortalTabId;
 use crate::portal_tab_target::PortalTabTarget;
@@ -19,11 +20,13 @@ use cloud_terrastodon_auth_types::CloudTerrastodonAccountSession;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialRegistration;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
 use cloud_terrastodon_azure::AzureTenantId;
+use eframe::egui::CollapsingHeader;
 use eframe::egui::Context;
 use eframe::egui::Ui;
 use std::sync::Arc;
 use teamy_cancellation::CancellationError;
 use teamy_tracing::DiagnosticReport;
+use teamy_tracing::gui::DiagnosticReportView;
 
 impl MyApp {
     pub(crate) fn handle_account_picker_action(
@@ -165,6 +168,10 @@ impl MyApp {
         if self.account_operation.is_some() {
             return;
         }
+        let signing_in = action.login_target().is_some();
+        if signing_in {
+            self.account_sign_in_failure = None;
+        }
         let tab = self.tabs.active_id();
         let origin = AzureAccountOperationOrigin {
             tab,
@@ -185,7 +192,11 @@ impl MyApp {
                 self.account_picker.set_selection_error(tab, None);
                 self.account_operation = Some(operation);
             }
-            Err(error) => self.show_account_error(tab, DiagnosticReport::new(error)),
+            Err(error) => self.show_account_error(
+                tab,
+                signing_in,
+                capture_gui_failure(error, "Could not start account operation"),
+            ),
         }
     }
 
@@ -214,9 +225,13 @@ impl MyApp {
         }
     }
 
-    pub(crate) fn show_account_operation(&self, ctx: &Context) {
+    pub(crate) fn show_account_operation(&mut self, ctx: &Context) {
         if let Some(operation) = &self.account_operation {
             operation.show(ctx, self.account_picker.catalogue.as_ref().ok());
+        } else if let Some(error) = &self.account_sign_in_failure
+            && AzureAccountOperation::show_sign_in_failure(ctx, error)
+        {
+            self.account_sign_in_failure = None;
         }
     }
 
@@ -225,19 +240,39 @@ impl MyApp {
             ui.spinner();
             return;
         }
+        if let Some(error) = self.account_picker.selection_error(self.tabs.active_id()) {
+            CollapsingHeader::new("Account operation failed")
+                .id_salt(("tenant-account-operation-error", tenant))
+                .show(ui, |ui| DiagnosticReportView::new(error).show(ui));
+        }
+        let accounts = match &self.account_picker.catalogue {
+            Ok(catalogue) => Some(catalogue),
+            Err(error) => {
+                CollapsingHeader::new("Could not read registered accounts")
+                    .id_salt(("tenant-account-catalogue-error", tenant))
+                    .show(ui, |ui| DiagnosticReportView::new(error).show(ui));
+                None
+            }
+        };
         if let Some(tenant) = tenant {
-            self.tenant_manager.show_tenant(
+            if let Some(action) = self.tenant_manager.show_tenant(
                 ui,
                 tenant,
                 &self.work_tracker,
                 &self.executor,
                 &self.work_cache,
                 self.azure.authentication,
-            );
-        } else if let Some(open) =
-            self.tenant_manager
-                .show_list(ui, &self.work_tracker, &self.executor, &self.work_cache)
-        {
+                accounts,
+            ) {
+                self.start_account_operation(action, None, ui.ctx());
+            }
+        } else if let Some(open) = self.tenant_manager.show_list(
+            ui,
+            &self.work_tracker,
+            &self.executor,
+            &self.work_cache,
+            accounts,
+        ) {
             open.apply(self);
         }
     }
@@ -296,19 +331,36 @@ impl MyApp {
                     .chain()
                     .next()
                     .is_some_and(|cause| cause.is::<CancellationError>()) => {}
-            Err(error) => self.show_account_error(origin.tab, error),
+            Err(error) => {
+                self.show_account_error(origin.tab, operation.login_target.is_some(), error)
+            }
         }
     }
 
-    fn show_account_error(&mut self, origin: PortalTabId, report: DiagnosticReport) {
+    fn show_account_error(
+        &mut self,
+        origin: PortalTabId,
+        signing_in: bool,
+        report: DiagnosticReport,
+    ) {
+        // A sign-in prompt belongs to the app, which may display a different
+        // tab by the time the external authentication flow finishes.
+        if signing_in {
+            self.account_sign_in_failure = Some(report);
+            return;
+        }
         match self.tabs.tab(origin).map(|tab| tab.target().page()) {
             Some(PortalPage::Accounts) => self.account_manager.show_error(report),
+            Some(PortalPage::AzureTenants) => {
+                self.account_picker
+                    .set_selection_error(origin, Some(report));
+            }
             Some(_) => {
                 self.account_picker
                     .set_selection_error(origin, Some(report));
                 self.account_picker.open(origin);
             }
-            None => tracing::error!(error = report.as_error(), "Account operation failed"),
+            None => {}
         }
     }
 
@@ -329,7 +381,10 @@ impl MyApp {
                     self.account_authentication = authentication;
                 }
                 Err(error) => {
-                    self.account_picker.catalogue = Err(DiagnosticReport::new(error));
+                    self.account_picker.catalogue = Err(capture_gui_failure(
+                        error,
+                        "Could not install updated account authentication",
+                    ));
                     self.account_profiles = Default::default();
                     self.invalidate_azure_accounts(|_| true);
                     return;

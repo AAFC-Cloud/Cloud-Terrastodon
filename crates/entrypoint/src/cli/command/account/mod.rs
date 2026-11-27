@@ -15,6 +15,7 @@ mod account_list_cli;
 mod account_login_cli;
 mod account_logout_cli;
 mod account_remove_cli;
+mod account_rename_cli;
 mod account_show_cli;
 pub use account_cli::AccountArgs;
 mod account_import_legacy_cli;

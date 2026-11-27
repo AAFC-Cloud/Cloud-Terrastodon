@@ -6,6 +6,7 @@ use super::account_list_cli::AccountListArgs;
 use super::account_login_cli::AccountLoginArgs;
 use super::account_logout_cli::AccountLogoutArgs;
 use super::account_remove_cli::AccountRemoveArgs;
+use super::account_rename_cli::AccountRenameArgs;
 use super::account_show_cli::AccountShowArgs;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
@@ -29,6 +30,7 @@ pub enum AccountCommand {
     Login(AccountLoginArgs),
     Logout(AccountLogoutArgs),
     Remove(AccountRemoveArgs),
+    Rename(AccountRenameArgs),
     Default(AccountDefaultArgs),
 }
 impl AccountArgs {
@@ -43,9 +45,10 @@ impl AccountArgs {
             }
             AccountCommand::List(args) => Box::pin(args.invoke(executor.cancellation())).await,
             AccountCommand::Show(args) => Box::pin(args.invoke(executor.cancellation())).await,
-            AccountCommand::Login(args) => Box::pin(args.invoke(executor.cancellation())).await,
+            AccountCommand::Login(args) => Box::pin(args.invoke(executor)).await,
             AccountCommand::Logout(args) => Box::pin(args.invoke(executor)).await,
             AccountCommand::Remove(args) => Box::pin(args.invoke(executor)).await,
+            AccountCommand::Rename(args) => Box::pin(args.invoke(executor.cancellation())).await,
             AccountCommand::Default(args) => Box::pin(args.invoke(executor.cancellation())).await,
         }
     }

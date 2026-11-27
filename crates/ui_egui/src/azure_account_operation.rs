@@ -3,6 +3,7 @@ use crate::azure_account_details::AzureAccountDetails;
 use crate::azure_account_operation_event::AzureAccountOperationEvent;
 use crate::azure_account_operation_origin::AzureAccountOperationOrigin;
 use crate::azure_account_registration_form::source_label;
+use crate::capture_gui_failure::capture_gui_failure;
 use crate::gui_work_cache::GuiWorkCache;
 use cloud_terrastodon_auth::AccountSignInPrompt;
 use cloud_terrastodon_auth::CloudTerrastodonAccountCatalogue;
@@ -19,6 +20,7 @@ use eyre::Result;
 use std::sync::Arc;
 use teamy_cancellation::CancellationToken;
 use teamy_tracing::DiagnosticReport;
+use teamy_tracing::gui::DiagnosticReportView;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -73,7 +75,9 @@ impl AzureAccountOperation {
                         .await
                 });
                 publish(AzureAccountOperationEvent::Started(cancel));
-                let outcome = job.await.map_err(DiagnosticReport::new);
+                let outcome = job
+                    .await
+                    .map_err(|error| capture_gui_failure(error, "Account operation failed"));
                 publish(AzureAccountOperationEvent::RefreshingCatalogue);
                 // A cancelled or failed operation may have completed a durable
                 // lifecycle step. Read the catalogue even when it returns an error.
@@ -81,9 +85,9 @@ impl AzureAccountOperation {
                     .close_and_drain(executor.cancellation())
                     .await;
                 let provider_closed = closed.is_ok();
-                let catalogue = closed
-                    .and_then(|()| store.load())
-                    .map_err(DiagnosticReport::new);
+                let catalogue = closed.and_then(|()| store.load()).map_err(|error| {
+                    capture_gui_failure(error, "Could not reload account catalogue")
+                });
                 publish(AzureAccountOperationEvent::Finished {
                     outcome,
                     catalogue,
@@ -117,14 +121,15 @@ impl AzureAccountOperation {
                 }
                 Err(TryRecvError::Empty) => return None,
                 Err(TryRecvError::Disconnected) => {
-                    let catalogue = Err(DiagnosticReport::new(eyre::eyre!(
-                        "Account operation ended before returning a catalogue snapshot"
-                    )));
-                    return Some(AzureAccountOperationEvent::Finished {
-                        outcome: Err(DiagnosticReport::new(eyre::eyre!(
+                    let error = capture_gui_failure(
+                        eyre::eyre!(
                             "Account operation ended before reporting an outcome. Reload to check the account status."
-                        ))),
-                        catalogue,
+                        ),
+                        "Account operation was interrupted",
+                    );
+                    return Some(AzureAccountOperationEvent::Finished {
+                        outcome: Err(error.clone()),
+                        catalogue: Err(error),
                         provider_closed: false,
                     });
                 }
@@ -190,5 +195,84 @@ impl AzureAccountOperation {
                 cancellation.request_cancel("account operation cancelled in the GUI");
             }
         });
+    }
+
+    /// Show the result in place of the sign-in progress until it is dismissed.
+    pub fn show_sign_in_failure(ctx: &Context, error: &DiagnosticReport) -> bool {
+        let mut open = true;
+        let dismissed = Window::new("Sign-in failed")
+            .id(Id::new("account_operation"))
+            .default_width(430.0)
+            .collapsible(false)
+            .open(&mut open)
+            .show(ctx, |ui| {
+                ui.label(error.report.to_string());
+                ui.collapsing("Error details", |ui| {
+                    DiagnosticReportView::new(error).show(ui);
+                });
+                ui.button("Close").clicked()
+            })
+            .and_then(|window| window.inner)
+            .unwrap_or(false);
+        dismissed || !open
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use eframe::egui::Event;
+    use eframe::egui::Modifiers;
+    use eframe::egui::PointerButton;
+    use eframe::egui::Pos2;
+    use eframe::egui::RawInput;
+    use eframe::egui::Rect;
+    use eframe::egui::Shape;
+    use eframe::egui::Vec2;
+
+    #[test]
+    fn failed_sign_in_shows_the_reason_until_dismissed() {
+        let reason = "credential authenticates a different principal; register a separate account";
+        let report = DiagnosticReport::new(eyre::eyre!(reason));
+        let context = Context::default();
+        let draw = |events| {
+            let mut dismissed = false;
+            let mut output = context.run_ui(
+                RawInput {
+                    screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(700.0, 480.0))),
+                    events,
+                    ..Default::default()
+                },
+                |ui| dismissed |= AzureAccountOperation::show_sign_in_failure(ui.ctx(), &report),
+            );
+            output.textures_delta.clear();
+            (output.shapes, dismissed)
+        };
+        draw(Vec::new());
+        let (shapes, dismissed) = draw(Vec::new());
+        assert!(!dismissed);
+        let text_position = |label| {
+            shapes.iter().find_map(|clipped| match &clipped.shape {
+                Shape::Text(text) if text.galley.text() == label => {
+                    Some(text.visual_bounding_rect().center())
+                }
+                _ => None,
+            })
+        };
+        assert!(text_position(reason).is_some());
+        let pos = text_position("Close").unwrap();
+        let click = |pressed| {
+            vec![
+                Event::PointerMoved(pos),
+                Event::PointerButton {
+                    pos,
+                    button: PointerButton::Primary,
+                    pressed,
+                    modifiers: Modifiers::NONE,
+                },
+            ]
+        };
+        assert!(!draw(click(true)).1);
+        assert!(draw(click(false)).1);
     }
 }

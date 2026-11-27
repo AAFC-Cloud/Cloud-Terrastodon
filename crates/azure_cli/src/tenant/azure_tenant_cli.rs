@@ -5,6 +5,7 @@ use super::AzureTenantDiscoverArgs;
 use super::AzureTenantForgetArgs;
 use super::AzureTenantListArgs;
 use super::AzureTenantShowArgs;
+use super::AzureTenantShowDefaultArgs;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
@@ -32,6 +33,8 @@ pub enum AzureTenantCommand {
     Add(AzureTenantAddArgs),
     /// Show details for a tracked tenant.
     Show(AzureTenantShowArgs),
+    /// Show the locally configured tenant default.
+    ShowDefault(AzureTenantShowDefaultArgs),
     /// Forget a tracked tenant.
     Forget(AzureTenantForgetArgs),
 }
@@ -46,6 +49,7 @@ impl AzureTenantArgs {
             AzureTenantCommand::Alias(args) => Box::pin(args.invoke(cancellation)).await,
             AzureTenantCommand::Add(args) => Box::pin(args.invoke(cancellation)).await,
             AzureTenantCommand::Show(args) => Box::pin(args.invoke(executor)).await,
+            AzureTenantCommand::ShowDefault(args) => Box::pin(args.invoke(cancellation)).await,
             AzureTenantCommand::Forget(args) => Box::pin(args.invoke(cancellation)).await,
         }
     }

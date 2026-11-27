@@ -18,6 +18,10 @@ pub(crate) enum AzureAccountAction {
         alias: CloudTerrastodonAccountAlias,
         registration: AzureAccountRegistration,
     },
+    Rename {
+        account_id: CloudTerrastodonAccountId,
+        alias: CloudTerrastodonAccountAlias,
+    },
     RegisterCredential {
         account_id: CloudTerrastodonAccountId,
         credential: CloudTerrastodonAccountCredential,
@@ -96,6 +100,9 @@ impl AzureAccountAction {
                 let credential = registration.resolve(cancellation).await?;
                 let account = store.add(alias, credential, cancellation).await?;
                 return Ok(Some(account.id));
+            }
+            Self::Rename { account_id, alias } => {
+                store.rename(account_id, alias, cancellation).await?;
             }
             Self::RegisterCredential {
                 account_id,

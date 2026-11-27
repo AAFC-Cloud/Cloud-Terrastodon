@@ -173,7 +173,7 @@ fn show_accounts_table(
             .with_width(122.0)
             .groupable(),
         ReflectedTableColumn::new("Preferred session", "session").with_width(132.0),
-        ReflectedTableColumn::new("Default", "default_account").with_width(96.0),
+        ReflectedTableColumn::new("Service default", "service_default").with_width(116.0),
     ];
     let rows = catalogue
         .accounts
