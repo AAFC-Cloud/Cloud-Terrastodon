@@ -7,11 +7,13 @@ use arbitrary::Arbitrary;
 use facet::Facet;
 use jiff::Timestamp;
 
-/// The [GraphUser](https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/search-user-entitlements?view=azure-devops-rest-7.1#graphuser) referenced by an Azure DevOps 7.1 user entitlement.
+/// A user in [Azure DevOps Graph (7.1)](https://learn.microsoft.com/en-us/rest/api/azure/devops/graph/users/list?view=azure-devops-rest-7.1#graphuser).
+///
+/// Also returned as a [GraphUser](https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/search-user-entitlements?view=azure-devops-rest-7.1#graphuser) referenced by an Azure DevOps 7.1 user entitlement.
 #[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
-pub struct AzureDevOpsLicenseEntitlementUserReference {
+pub struct AzureDevOpsGraphUser {
     #[facet(rename = "_links")]
     pub links: Option<AzureDevOpsReferenceLinks>,
     pub descriptor: AzureDevOpsDescriptor,
@@ -30,3 +32,6 @@ pub struct AzureDevOpsLicenseEntitlementUserReference {
     pub subject_kind: Option<String>,
     pub url: Option<AzureDevOpsIdentityUrl>,
 }
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsGraphUser);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGraphUser);

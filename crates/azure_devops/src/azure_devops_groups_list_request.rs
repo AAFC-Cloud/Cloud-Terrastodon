@@ -98,8 +98,6 @@ impl<'a> ExecutableRequest for AzureDevOpsGroupsListRequest<'a> {
         Box::pin(async move {
             let project = &self.project;
             debug!("Fetching Azure DevOps groups for project {project}");
-            let mut groups = Vec::new();
-            let mut continuation: Option<MicrosoftContinuationToken> = None;
             let cache_key = self.cache_key()?;
             let project_id = match &self.project {
                 AzureDevOpsProjectArgument::Id(id) => **id,
@@ -140,41 +138,15 @@ impl<'a> ExecutableRequest for AzureDevOpsGroupsListRequest<'a> {
                 !descriptor.trim().is_empty(),
                 "Azure DevOps returned an empty descriptor for project {project_id}"
             );
-            let pages = cache_key.join("pages")?;
-            let mut seen = BTreeSet::new();
-            let mut page_index = 0;
-            loop {
-                executor.cancellation().bail_if_cancelled()?;
-                let mut query = vec![
-                    ("api-version", "7.1-preview.1"),
-                    ("scopeDescriptor", descriptor.as_str()),
-                ];
-                if let Some(token) = continuation.as_ref() {
-                    query.push(("continuationToken", token.as_str()));
-                }
-                let url =
-                    self.org_url
-                        .api_url("vssps.dev.azure.com", "_apis/graph/groups", &query)?;
-                let request = RestRequest::from_method_and_url(Method::GET, url)?
-                    .cache(pages.join(page_index.to_string())?)
-                    .authentication(self.auth_selection.into());
-                let (response, next_continuation) = request
-                    .receive_with_ms_continuation_token_cached::<AzureDevOpsGroupListResponse>(
-                        &executor,
-                        CacheOperationOwner::of::<AzureDevOpsGroupsListRequest<'static>>(),
-                    )
-                    .await?;
-                groups.extend(response.value.iter().cloned());
-                let Some(token) = next_continuation else {
-                    break;
-                };
-                ensure!(
-                    seen.insert(token.clone()),
-                    "Azure DevOps returned a repeated group continuation token"
-                );
-                continuation = Some(token);
-                page_index += 1;
-            }
+            let groups = collect_graph_groups(
+                &self.org_url,
+                Some(&descriptor),
+                self.auth_selection,
+                &cache_key,
+                CacheOperationOwner::of::<AzureDevOpsGroupsListRequest<'static>>(),
+                &executor,
+            )
+            .await?;
 
             debug!(
                 "Found {} Azure DevOps groups for project {}",
@@ -184,6 +156,50 @@ impl<'a> ExecutableRequest for AzureDevOpsGroupsListRequest<'a> {
             Ok(groups)
         })
     }
+}
+
+pub(crate) async fn collect_graph_groups(
+    organization: &AzureDevOpsOrganizationUrl,
+    scope_descriptor: Option<&str>,
+    authentication: AzureDevOpsAuthSelection,
+    key: &CacheKey,
+    owner: CacheOperationOwner,
+    executor: &CloudTerrastodonExecutor,
+) -> eyre::Result<Vec<Arc<AzureDevOpsGroup>>> {
+    let pages = key.join("pages")?;
+    let mut groups = Vec::new();
+    let mut continuation: Option<MicrosoftContinuationToken> = None;
+    let mut seen = BTreeSet::new();
+    let mut page_index = 0;
+    loop {
+        executor.cancellation().bail_if_cancelled()?;
+        let mut query = vec![("api-version", "7.1-preview.1")];
+        if let Some(descriptor) = scope_descriptor {
+            query.push(("scopeDescriptor", descriptor));
+        }
+        if let Some(token) = &continuation {
+            query.push(("continuationToken", token.as_str()));
+        }
+        let url = organization.api_url("vssps.dev.azure.com", "_apis/graph/groups", &query)?;
+        let (response, next_continuation) = RestRequest::from_method_and_url(Method::GET, url)?
+            .cache(pages.join(page_index.to_string())?)
+            .authentication(authentication.into())
+            .receive_with_ms_continuation_token_cached::<AzureDevOpsGroupListResponse>(
+                executor, owner,
+            )
+            .await?;
+        groups.extend(response.value.iter().cloned());
+        let Some(token) = next_continuation else {
+            break;
+        };
+        ensure!(
+            seen.insert(token.clone()),
+            "Azure DevOps returned a repeated group continuation token"
+        );
+        continuation = Some(token);
+        page_index += 1;
+    }
+    Ok(groups)
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupsListRequest<'static>);

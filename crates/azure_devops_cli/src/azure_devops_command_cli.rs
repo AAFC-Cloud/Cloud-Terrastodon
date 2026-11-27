@@ -1,6 +1,7 @@
 use super::audit_cli::AzureDevOpsAuditArgs;
 use super::azure_devops_rest_command_cli::AzureDevOpsRestArgs;
 use crate::agent::AzureDevOpsAgentArgs;
+use crate::azure_devops_entra_permissions_cli::AzureDevOpsEntraPermissionsArgs;
 use crate::build::AzureDevOpsBuildArgs;
 use crate::group::AzureDevOpsGroupArgs;
 use crate::license_entitlement::AzureDevOpsLicenseEntitlementArgs;
@@ -37,6 +38,8 @@ pub enum AzureDevOpsCommand {
     Build(AzureDevOpsBuildArgs),
     /// Audit Azure DevOps resources for configuration issues.
     Audit(AzureDevOpsAuditArgs),
+    /// Inspect Azure DevOps permissions for an Entra user or group.
+    EntraPermissions(AzureDevOpsEntraPermissionsArgs),
     /// Issue raw Azure DevOps REST requests.
     Rest(AzureDevOpsRestArgs),
     /// Manage Azure DevOps organizations tracked on this device.
@@ -69,6 +72,7 @@ impl AzureDevOpsCommand {
             AzureDevOpsCommand::Build(args) => Box::pin(args.invoke(executor)).await,
             AzureDevOpsCommand::Project(args) => Box::pin(args.invoke(executor)).await,
             AzureDevOpsCommand::Audit(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsCommand::EntraPermissions(args) => Box::pin(args.invoke(executor)).await,
             AzureDevOpsCommand::Rest(args) => Box::pin(args.invoke(executor)).await,
             AzureDevOpsCommand::Organization(args) => {
                 Box::pin(args.invoke(executor.cancellation())).await

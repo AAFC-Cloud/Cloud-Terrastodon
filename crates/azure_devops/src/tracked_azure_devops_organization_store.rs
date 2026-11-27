@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::TrackedAzureDevOpsOrganization;
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
@@ -46,6 +47,19 @@ impl TrackedAzureDevOpsOrganizationStore {
             .wrap_err_with(|| format!("Decoding tracked organizations from {}", path.display()))?;
         organizations.sort_by_cached_key(|org| org.url.expanded_form());
         Ok(organizations)
+    }
+
+    /// List the tracked organizations explicitly associated with the tenant.
+    pub async fn list_for_tenant(
+        &self,
+        tenant_id: AzureTenantId,
+    ) -> Result<Vec<TrackedAzureDevOpsOrganization>> {
+        Ok(self
+            .list()
+            .await?
+            .into_iter()
+            .filter(|organization| organization.tenant_id == Some(tenant_id))
+            .collect())
     }
 
     /// Find a saved organization by its parsed URL.
