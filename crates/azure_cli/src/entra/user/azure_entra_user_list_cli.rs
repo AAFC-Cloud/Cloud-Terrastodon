@@ -13,6 +13,10 @@ use tracing::info;
 pub struct AzureEntraUserListArgs {
     #[facet(flatten)]
     pub authentication: AzureAuthenticationArgs,
+
+    /// Refresh the cached user list.
+    #[facet(figue::named, default)]
+    pub no_cache: bool,
 }
 
 impl AzureEntraUserListArgs {
@@ -21,6 +25,7 @@ impl AzureEntraUserListArgs {
         let authentication = self.authentication.resolve(executor).await?;
         let users = EntraUserListRequest { authentication }
             .execute(executor)
+            .with_invalidation(self.no_cache)
             .observe(|event| {
                 if let ExecutionEvent::Progress(progress) = event {
                     info!(

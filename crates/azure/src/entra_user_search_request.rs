@@ -2,6 +2,7 @@ use crate::MicrosoftGraphHelper;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::EntraUser;
+use cloud_terrastodon_azure_types::EntraUserId;
 use cloud_terrastodon_azure_types::PercentEncodeExt;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheScope;
@@ -18,12 +19,16 @@ use tracing::debug;
 
 const USER_SEARCH_CACHE_DURATION: Duration = Duration::from_secs(60);
 
-/// Search Graph v1.0 [users](https://learn.microsoft.com/graph/api/user-list?view=graph-rest-1.0) by a prefix of their identity or name.
+/// Search Graph v1.0 [users](https://learn.microsoft.com/graph/api/user-list?view=graph-rest-1.0)
+/// by object ID, by exact display name, or by a prefix of their identity or name.
 #[must_use = "This is a future request, you must .execute it"]
 #[derive(Arbitrary, Facet)]
 pub struct EntraUserSearchRequest {
     pub search_term: String,
     pub authentication: AzureBearerAuthenticationSelection,
+    /// Match a supplied object ID or an exact display name.
+    #[facet(default)]
+    pub exact_display_name: bool,
 }
 
 impl EntraUserSearchRequest {
@@ -43,10 +48,18 @@ impl EntraUserSearchRequest {
     }
 
     fn url(&self) -> String {
-        let search_term = escape_odata_string(self.search_term.trim());
-        let filter = format!(
-            "startswith(displayName,'{search_term}') or startswith(givenName,'{search_term}') or startswith(surname,'{search_term}') or startswith(mail,'{search_term}') or startswith(userPrincipalName,'{search_term}')"
-        );
+        let search_term = self.search_term.trim();
+        let filter = if self.exact_display_name {
+            match search_term.parse::<EntraUserId>() {
+                Ok(id) => format!("id eq '{id}'"),
+                Err(_) => format!("displayName eq '{}'", escape_odata_string(search_term)),
+            }
+        } else {
+            let search_term = escape_odata_string(search_term);
+            format!(
+                "startswith(displayName,'{search_term}') or startswith(givenName,'{search_term}') or startswith(surname,'{search_term}') or startswith(mail,'{search_term}') or startswith(userPrincipalName,'{search_term}')"
+            )
+        };
 
         format!(
             "https://graph.microsoft.com/v1.0/users?$select={}&$filter={}",
@@ -63,7 +76,12 @@ impl HasCacheKey for EntraUserSearchRequest {
         let search_hash = blake3::hash(self.search_term.trim().as_bytes())
             .to_hex()
             .to_string();
-        self.tenant_cache_key()?.join(search_hash)
+        let key = self.tenant_cache_key()?;
+        if self.exact_display_name {
+            key.join("exact-display-name")?.join(search_hash)
+        } else {
+            key.join(search_hash)
+        }
     }
 }
 
@@ -118,16 +136,21 @@ mod tests {
     use cloud_terrastodon_command::CancellationToken;
 
     #[test]
-    fn url_escapes_search_terms_as_odata_query_values() {
+    fn exact_search_escapes_display_names_as_odata_query_values() {
         CancellationToken::new()
             .with_scope(|_cancellation| {
                 let authentication = test_authentication();
                 let request = EntraUserSearchRequest {
+                    exact_display_name: true,
                     search_term: "O'Neil & Smith".to_owned(),
                     authentication,
                 };
 
-                assert!(request.url().contains("O%27%27Neil%20%26%20Smith"));
+                assert!(
+                    request
+                        .url()
+                        .contains("displayName%20eq%20%27O%27%27Neil%20%26%20Smith%27")
+                );
                 eyre::Ok(())
             })
             .expect("uncancelled test scope");
@@ -139,6 +162,7 @@ mod tests {
             .with_scope(|_cancellation| {
                 let authentication = test_authentication();
                 let request = EntraUserSearchRequest {
+                    exact_display_name: false,
                     search_term: "Smith".to_owned(),
                     authentication,
                 };

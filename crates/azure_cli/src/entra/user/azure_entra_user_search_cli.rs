@@ -13,9 +13,17 @@ pub struct AzureEntraUserSearchArgs {
     #[facet(flatten)]
     pub authentication: AzureAuthenticationArgs,
 
-    /// Search text. Matching is performed against the beginning of user name fields.
+    /// Search text. The default matches the beginning of user name fields.
     #[facet(figue::positional)]
     pub search_term: String,
+
+    /// Match the full display name or a user object ID.
+    #[facet(figue::named, default)]
+    pub exact_display_name: bool,
+
+    /// Fetch fresh search results.
+    #[facet(figue::named, default)]
+    pub no_cache: bool,
 }
 
 impl AzureEntraUserSearchArgs {
@@ -23,10 +31,12 @@ impl AzureEntraUserSearchArgs {
         let authentication = self.authentication.resolve(executor).await?;
         info!(tenant_id = %authentication.tenant_id, search_term = %self.search_term, "Searching Entra users");
         let users = EntraUserSearchRequest {
+            exact_display_name: self.exact_display_name,
             search_term: (self.search_term),
             authentication,
         }
         .execute(executor)
+        .with_invalidation(self.no_cache)
         .await?;
 
         Ok(CliOutput::facet(users))

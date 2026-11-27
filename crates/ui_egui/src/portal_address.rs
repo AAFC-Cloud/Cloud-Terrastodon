@@ -178,7 +178,10 @@ impl PortalAddress {
             }
             PortalTabTarget::Page(PortalPage::EntraUsers) => format_cli_command(
                 "entra user list",
-                &AzureEntraUserListArgs { authentication },
+                &AzureEntraUserListArgs {
+                    authentication,
+                    no_cache: false,
+                },
             )?,
             PortalTabTarget::Page(PortalPage::EntraGroups) => format_cli_command(
                 "entra group list",
@@ -200,6 +203,7 @@ impl PortalAddress {
                 &AzureEntraUserShowArgs {
                     authentication,
                     user: (*id).into(),
+                    no_cache: false,
                 },
             )?,
             PortalTabTarget::EntraGroup(id) => format_cli_command(

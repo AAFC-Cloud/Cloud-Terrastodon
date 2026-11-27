@@ -17,6 +17,10 @@ pub struct AzureEntraUserShowArgs {
     /// User object id or user principal name.
     #[facet(figue::positional)]
     pub user: EntraUserArgument<'static>,
+
+    /// Refresh cached user details.
+    #[facet(figue::named, default)]
+    pub no_cache: bool,
 }
 
 impl AzureEntraUserShowArgs {
@@ -29,6 +33,7 @@ impl AzureEntraUserShowArgs {
             authentication,
         }
         .execute(executor)
+        .with_invalidation(self.no_cache)
         .await?;
 
         Ok(CliOutput::facet(user))

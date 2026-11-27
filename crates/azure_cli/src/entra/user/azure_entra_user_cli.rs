@@ -1,5 +1,11 @@
+use super::AzureEntraUserApplicationAssignmentsArgs;
+use super::AzureEntraUserAzureRoleAssignmentsArgs;
 use super::AzureEntraUserBrowseArgs;
 use super::AzureEntraUserListArgs;
+use super::AzureEntraUserMeArgs;
+use super::AzureEntraUserOwnedApplicationsArgs;
+use super::AzureEntraUserOwnedGroupsArgs;
+use super::AzureEntraUserPhotoArgs;
 use super::AzureEntraUserSearchArgs;
 use super::AzureEntraUserShowArgs;
 use cloud_terrastodon_app::CliOutput;
@@ -19,6 +25,18 @@ pub enum AzureEntraUserCommand {
     Search(AzureEntraUserSearchArgs),
     /// Browse Entra users interactively.
     Browse(AzureEntraUserBrowseArgs),
+    /// Show the signed-in Entra user.
+    Me(AzureEntraUserMeArgs),
+    /// Download an Entra user's profile photo.
+    Photo(AzureEntraUserPhotoArgs),
+    /// List groups owned by an Entra user.
+    OwnedGroups(AzureEntraUserOwnedGroupsArgs),
+    /// List application registrations owned by an Entra user.
+    OwnedApplications(AzureEntraUserOwnedApplicationsArgs),
+    /// List app role assignments granted to an Entra user.
+    ApplicationAssignments(AzureEntraUserApplicationAssignmentsArgs),
+    /// List direct and group-based Azure RBAC assignments for an Entra user.
+    AzureRoleAssignments(AzureEntraUserAzureRoleAssignmentsArgs),
 }
 
 impl AzureEntraUserCommand {
@@ -28,6 +46,16 @@ impl AzureEntraUserCommand {
             AzureEntraUserCommand::Show(args) => Box::pin(args.invoke(executor)).await,
             AzureEntraUserCommand::Search(args) => Box::pin(args.invoke(executor)).await,
             AzureEntraUserCommand::Browse(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraUserCommand::Me(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraUserCommand::Photo(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraUserCommand::OwnedGroups(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraUserCommand::OwnedApplications(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraUserCommand::ApplicationAssignments(args) => {
+                Box::pin(args.invoke(executor)).await
+            }
+            AzureEntraUserCommand::AzureRoleAssignments(args) => {
+                Box::pin(args.invoke(executor)).await
+            }
         }
     }
 }

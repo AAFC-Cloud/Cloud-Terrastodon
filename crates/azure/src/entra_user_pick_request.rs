@@ -36,6 +36,7 @@ impl CacheInvalidationKeys for EntraUserPickRequest {
             }
             .cache_key()?,
             EntraUserSearchRequest {
+                exact_display_name: false,
                 search_term: String::new(),
                 authentication: self.authentication,
             }
@@ -89,6 +90,7 @@ impl ExecutableRequest for EntraUserPickRequest {
                     };
                     debug!(query = %query, "Searching Entra users");
                     let users = EntraUserSearchRequest {
+                        exact_display_name: false,
                         search_term: (query.as_ref()).into(),
                         authentication: self.authentication,
                     }
@@ -146,6 +148,7 @@ mod tests {
             );
             for term in ["Alice", "Bob", "O'Neil"] {
                 let search = EntraUserSearchRequest {
+                    exact_display_name: false,
                     search_term: term.to_owned(),
                     authentication: *authentication,
                 }
