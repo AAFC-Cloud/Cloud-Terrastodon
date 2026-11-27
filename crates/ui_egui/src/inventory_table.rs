@@ -2,8 +2,11 @@ use eframe::egui::Align;
 use eframe::egui::AsId;
 use eframe::egui::Frame;
 use eframe::egui::Id;
+use eframe::egui::Label;
 use eframe::egui::Layout;
 use eframe::egui::Panel;
+use eframe::egui::RichText;
+use eframe::egui::Spinner;
 use eframe::egui::Stroke;
 use eframe::egui::Ui;
 use egui_extras::TableBuilder;
@@ -25,13 +28,35 @@ pub(crate) fn show_inventory_table(ui: &mut Ui, contents: impl FnOnce(TableBuild
 
 /// Reserve a footer before the table consumes the remaining viewport height.
 pub(crate) fn show_inventory_result_count(ui: &mut Ui, id: impl AsId, shown: usize, total: usize) {
+    show_inventory_footer(ui, id, shown, total, None);
+}
+
+pub(crate) fn show_inventory_footer(
+    ui: &mut Ui,
+    id: impl AsId,
+    shown: usize,
+    total: usize,
+    status: Option<&str>,
+) {
     let id = ui.make_persistent_id(("inventory-result-count", Id::new(id)));
     Panel::bottom(id)
         .exact_size(28.0)
         .frame(Frame::NONE)
         .show(ui, |ui| {
             ui.add_space(7.0);
-            ui.small(format!("Showing {shown} of {total} entries"));
+            ui.horizontal(|ui| {
+                ui.add(
+                    Label::new(
+                        RichText::new(format!("Showing {shown} of {total} entries")).small(),
+                    )
+                    .truncate(),
+                );
+                if let Some(status) = status {
+                    ui.add(Spinner::new().size(12.0));
+                    ui.add(Label::new(RichText::new(status).weak().small()).truncate())
+                        .on_hover_text(status);
+                }
+            });
         });
 }
 

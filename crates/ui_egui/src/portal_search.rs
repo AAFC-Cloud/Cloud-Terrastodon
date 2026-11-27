@@ -13,6 +13,18 @@ use eframe::egui::Vec2;
 
 /// Render a desktop search or filter input with a consistent focus indicator.
 pub(crate) fn portal_search(ui: &mut Ui, value: &mut String, hint: &str, width: f32) -> Response {
+    let id = ui.next_auto_id();
+    portal_search_with_id(ui, id, value, hint, width)
+}
+
+/// Keep input focus and cursor state when surrounding widgets change.
+pub(crate) fn portal_search_with_id(
+    ui: &mut Ui,
+    id: Id,
+    value: &mut String,
+    hint: &str,
+    width: f32,
+) -> Response {
     ui.scope(|ui| {
         let ink = Color32::from_rgb(41, 40, 39);
         let visuals = ui.visuals_mut();
@@ -35,6 +47,7 @@ pub(crate) fn portal_search(ui: &mut Ui, value: &mut String, hint: &str, width: 
         let width = width.min(ui.available_width()).max(1.0);
         let icon = Id::new("search-icon");
         let edit = TextEdit::singleline(value)
+            .id(id)
             .prefix(Atom::custom(icon, Vec2::splat(13.0)))
             .hint_text(hint)
             .text_color(ink)

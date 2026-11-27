@@ -1,7 +1,7 @@
-use crate::inventory_table::show_inventory_result_count;
+use crate::inventory_table::show_inventory_footer;
 use crate::inventory_table::show_inventory_table;
 use crate::portal_filter_chip::portal_filter_chip;
-use crate::portal_search::portal_search;
+use crate::portal_search::portal_search_with_id;
 use crate::portal_tab_open::PortalTabOpen;
 use crate::reflected_table_column::ReflectedTableColumn;
 use crate::reflected_table_group::ReflectedTableGroup;
@@ -33,6 +33,7 @@ pub(crate) struct ReflectedTable<'a> {
     initial_sort: ReflectedTableSort,
     selection_enabled: bool,
     result_count: bool,
+    status: Option<&'a str>,
     search_hint: &'static str,
     deemphasized: Option<fn(ReflectedValue<'_>) -> bool>,
 }
@@ -45,6 +46,7 @@ impl<'a> ReflectedTable<'a> {
             initial_sort: ReflectedTableSort::INITIAL,
             selection_enabled: true,
             result_count: false,
+            status: None,
             search_hint: "Search results",
             deemphasized: None,
         }
@@ -67,6 +69,13 @@ impl<'a> ReflectedTable<'a> {
         self
     }
 
+    /// Reserve the result footer and show the current loading or lookup progress there.
+    pub fn with_status(mut self, status: Option<&'a str>) -> Self {
+        self.result_count = true;
+        self.status = status;
+        self
+    }
+
     pub fn with_search_hint(mut self, hint: &'static str) -> Self {
         self.search_hint = hint;
         self
@@ -76,6 +85,12 @@ impl<'a> ReflectedTable<'a> {
     pub fn with_deemphasized_rows(mut self, predicate: fn(ReflectedValue<'_>) -> bool) -> Self {
         self.deemphasized = Some(predicate);
         self
+    }
+
+    /// Read the table's current text filter for an optional upstream lookup.
+    pub fn search_text(&self, ui: &Ui) -> String {
+        let search_id = ui.id().with(self.id).with("search");
+        ui.data(|data| data.get_temp::<String>(search_id).unwrap_or_default())
     }
 
     pub fn reset_selection_anchor(&self, ui: &Ui) {
@@ -206,7 +221,7 @@ impl<'a> ReflectedTable<'a> {
         let table_id = ui.id().with(self.id);
         let search_id = table_id.with("search");
         let grouping_id = table_id.with("grouping");
-        let mut search = ui.data(|data| data.get_temp::<String>(search_id).unwrap_or_default());
+        let mut search = self.search_text(ui);
         let previous_grouping = ui.data(|data| data.get_temp::<&'static str>(grouping_id));
         let mut grouping = previous_grouping.filter(|field| {
             self.columns
@@ -215,11 +230,14 @@ impl<'a> ReflectedTable<'a> {
         });
         let search_changed = ui
             .horizontal_wrapped(|ui| {
-                let changed = ui
-                    .push_id(search_id, |ui| {
-                        portal_search(ui, &mut search, self.search_hint, 270.0).changed()
-                    })
-                    .inner;
+                let changed = portal_search_with_id(
+                    ui,
+                    search_id.with("input"),
+                    &mut search,
+                    self.search_hint,
+                    270.0,
+                )
+                .changed();
                 if self.columns.iter().any(|column| column.can_group) {
                     let label = grouping
                         .and_then(|field| self.columns.iter().find(|column| column.field == field))
@@ -269,14 +287,10 @@ impl<'a> ReflectedTable<'a> {
             .map(|row| (row_id(row), row))
             .collect();
         if self.result_count {
-            show_inventory_result_count(ui, self.id, rows.len(), total);
+            show_inventory_footer(ui, self.id, rows.len(), total, self.status);
         }
-        if total == 0 && self.result_count {
-            ui.label("No entries to display.");
-        } else if !search.is_empty() && rows.is_empty() {
-            ui.label("No rows match the search.");
-        }
-        if let Some(column) =
+        let no_match = !self.result_count && !search.is_empty() && rows.is_empty();
+        let navigation = if let Some(column) =
             grouping.and_then(|field| self.columns.iter().find(|column| column.field == field))
         {
             self.show_rows(
@@ -288,7 +302,11 @@ impl<'a> ReflectedTable<'a> {
             )
         } else {
             self.show_rows(ui, rows, checked_rows, None, activate)
+        };
+        if no_match {
+            ui.label("No rows match the search.");
         }
+        navigation
     }
 
     /// Match a lowercase substring in a row's visible values and linked identifiers.
@@ -701,6 +719,7 @@ mod tests {
     use cloud_terrastodon_azure::AzureResourceGroupId;
     use eframe::egui::Context;
     use eframe::egui::Event;
+    use eframe::egui::FullOutput;
     use eframe::egui::Modifiers;
     use eframe::egui::PointerButton;
     use eframe::egui::Pos2;
@@ -731,6 +750,81 @@ mod tests {
         assert!(table.matches_search(&row, "sample resource"));
         assert!(table.matches_search(&row, "synthetic-42"));
         assert!(!table.matches_search(&row, "private value"));
+    }
+
+    #[test]
+    fn progress_and_zero_results_keep_search_focus_and_header_position() {
+        let context = Context::default();
+        let columns = [ReflectedTableColumn::new("Name", "label")];
+        let rows = [Record {
+            label: "Initial entry".into(),
+            id: "initial".into(),
+            credential: String::new(),
+        }];
+        let mut search = String::new();
+        let mut draw = |status, events| {
+            let mut frame = context.run_ui(
+                RawInput {
+                    screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(480.0, 240.0))),
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    let table = ReflectedTable::new("directory", &columns).with_status(status);
+                    table.show_explorable(ui, &rows, |row| Id::new(&row.id), &mut HashMap::new());
+                    search = table.search_text(ui);
+                },
+            );
+            frame.textures_delta.clear();
+            frame
+        };
+        let frame = draw(None, vec![]);
+        let header_y = |frame: &FullOutput| {
+            frame
+                .shapes
+                .iter()
+                .find_map(|clipped| match &clipped.shape {
+                    Shape::Text(shape) if shape.galley.text() == "Name ↑" => Some(shape.pos.y),
+                    _ => None,
+                })
+                .unwrap()
+        };
+        let initial_header_y = header_y(&frame);
+        let input = frame
+            .shapes
+            .iter()
+            .find_map(|clipped| match &clipped.shape {
+                Shape::Text(shape) if shape.galley.text() == "Search results" => {
+                    Some(shape.visual_bounding_rect().center())
+                }
+                _ => None,
+            })
+            .unwrap();
+        for pressed in [true, false] {
+            draw(
+                None,
+                vec![
+                    Event::PointerMoved(input),
+                    Event::PointerButton {
+                        pos: input,
+                        button: PointerButton::Primary,
+                        pressed,
+                        modifiers: Modifiers::NONE,
+                    },
+                ],
+            );
+        }
+        let focused = context.memory(|memory| memory.focused()).unwrap();
+        for (status, letter) in [
+            (Some("Loading directory entries"), "z"),
+            (Some("Searching Microsoft Graph"), "a"),
+            (None, "b"),
+        ] {
+            let frame = draw(status, vec![Event::Text(letter.to_owned())]);
+            assert!(context.memory(|memory| memory.has_focus(focused)));
+            assert_eq!(header_y(&frame), initial_header_y);
+        }
+        assert_eq!(search, "zab");
     }
 
     #[test]
