@@ -25,7 +25,9 @@ use eframe::egui::DragAndDrop;
 use eframe::egui::Frame;
 use eframe::egui::Id;
 use eframe::egui::Image;
+use eframe::egui::Key;
 use eframe::egui::Margin;
+use eframe::egui::Modifiers;
 use eframe::egui::Order;
 use eframe::egui::Panel;
 use eframe::egui::Rect;
@@ -53,7 +55,13 @@ impl MyApp {
             } else if input.consume_shortcut(&REFRESH_TAB_SHORTCUT) {
                 Some(PortalTabAction::Refresh(active))
             } else {
-                None
+                // egui may match Ctrl+Tab even with Shift held.
+                let backwards = input.consume_key(Modifiers::CTRL.plus(Modifiers::SHIFT), Key::Tab);
+                if !backwards && !input.consume_key(Modifiers::CTRL, Key::Tab) {
+                    return None;
+                }
+                let tab = self.tabs.adjacent_tab(backwards)?;
+                Some(PortalTabAction::Select(tab, Modifiers::NONE))
             }
         });
         if let Some(action) = action {

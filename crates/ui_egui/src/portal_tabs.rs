@@ -68,6 +68,19 @@ impl PortalTabs {
         self.tabs[self.active].id
     }
 
+    /// Find the next or previous tab in the active pane's rail order, wrapping at its ends.
+    pub fn adjacent_tab(&self, backwards: bool) -> Option<PortalTabId> {
+        let pane = self.active_pane();
+        let mut order = (self.active + 1..self.tabs.len()).chain(0..self.active);
+        let in_active_pane = |&index: &usize| self.tabs[index].pane == pane;
+        let index = if backwards {
+            order.rfind(in_active_pane)
+        } else {
+            order.find(in_active_pane)
+        };
+        index.map(|index| self.tabs[index].id)
+    }
+
     pub fn index_of(&self, id: PortalTabId) -> Option<usize> {
         self.tabs.iter().position(|tab| tab.id == id)
     }
@@ -850,6 +863,29 @@ mod tests {
     use crate::portal_scope_view::PortalScopeView;
     use cloud_terrastodon_app::OutputFormat;
     use cloud_terrastodon_azure::AzureResourceGroupId;
+
+    #[test]
+    fn tab_cycling_wraps_in_the_active_panes_rail_order() {
+        let mut tabs = PortalTabs::default();
+        let home = tabs.active_id();
+        let left = tabs.active_pane();
+        let logs = tabs.open_background(PortalTabTarget::Page(PortalPage::Logs));
+        let resources = tabs.open_background(PortalTabTarget::Page(PortalPage::Resources));
+        let about = tabs.open_background(PortalTabTarget::Page(PortalPage::About));
+        tabs.split_tabs(&[logs], left, left, PortalSplitSide::Right);
+        let right = tabs.active_pane();
+        assert_eq!(tabs.adjacent_tab(false), None);
+        assert_eq!(tabs.adjacent_tab(true), None);
+
+        tabs.select(tabs.index_of(home).unwrap());
+        assert_eq!(tabs.adjacent_tab(false), Some(resources));
+        assert_eq!(tabs.adjacent_tab(true), Some(about));
+
+        tabs.select(tabs.index_of(about).unwrap());
+        assert_eq!(tabs.adjacent_tab(false), Some(home));
+        assert_eq!(tabs.adjacent_tab(true), Some(resources));
+        assert_eq!(tabs.pane_active(right), Some(logs));
+    }
 
     #[test]
     fn background_open_keeps_the_active_split_and_creates_a_preview() {
