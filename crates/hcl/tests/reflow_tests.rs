@@ -13,7 +13,7 @@ use cloud_terrastodon_hcl::reflow::ReflowByBlockIdentifier;
 use cloud_terrastodon_hcl::reflow::ReflowExpressionsUseImportedResourceBlocks;
 use cloud_terrastodon_hcl::reflow::ReflowHclRequest;
 use cloud_terrastodon_hcl::reflow::ReflowRemoveDefaultAttributes;
-use hcl::edit::structure::Body;
+use hcl_edit::structure::Body;
 use indoc::indoc;
 use std::path::PathBuf;
 use std::sync::Arc;

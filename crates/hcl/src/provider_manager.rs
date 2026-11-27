@@ -26,7 +26,7 @@ use facet::Facet;
     reason = "Mirror index parsing reads version keys without interpreting their payloads."
 )]
 use facet_json::RawJson;
-use hcl::edit::structure::Block;
+use hcl_edit::structure::Block;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env::{self};

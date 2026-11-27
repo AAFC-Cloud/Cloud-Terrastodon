@@ -23,7 +23,7 @@ use cloud_terrastodon_hcl_types::ValidatedTFWorkDir;
 use eyre::Context;
 use eyre::OptionExt;
 use eyre::bail;
-use hcl::edit::structure::Body;
+use hcl_edit::structure::Body;
 use itertools::Itertools;
 use rand::seq::SliceRandom;
 use std::collections::HashSet;

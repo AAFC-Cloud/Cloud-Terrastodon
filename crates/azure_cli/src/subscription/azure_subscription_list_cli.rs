@@ -351,6 +351,7 @@ mod tests {
     use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_execution::UnreachableAuthenticationProvider;
     use facet::Facet;
+    use facet_value::Value;
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering;
 
@@ -489,22 +490,30 @@ mod tests {
                     .render(Some(OutputFormat::Json), true, &cancellation)
                     .unwrap()
                     .unwrap();
-                let output: serde_json::Value = serde_json::from_str(&output).unwrap();
-                assert_eq!(output[0]["tenant_name"], "Contoso");
+                let output: Vec<Value> = facet_json::from_str(&output).unwrap();
+                let tenant = output[0].as_object().unwrap();
+                let subscription = tenant["subscriptions"].as_array().unwrap()[0]
+                    .as_object()
+                    .unwrap();
+                assert_eq!(tenant["tenant_name"], Value::from("Contoso"));
                 assert_eq!(
-                    output[0]["tenant_aliases"],
-                    serde_json::json!(["cloud", "prod"])
+                    tenant["tenant_aliases"].as_array().unwrap().as_slice(),
+                    [Value::from("cloud"), Value::from("prod")]
                 );
-                assert!(output[0]["error"].is_null());
+                assert!(tenant.get("error").is_none_or(Value::is_null));
                 assert_eq!(
-                    output[0]["subscriptions"][0]["id"],
-                    "22222222-2222-2222-2222-222222222222"
+                    subscription["id"],
+                    Value::from("22222222-2222-2222-2222-222222222222")
                 );
-                assert_eq!(output[0]["subscriptions"][0]["tags"]["team"], "cloud");
+                assert_eq!(
+                    subscription["tags"].as_object().unwrap()["team"],
+                    Value::from("cloud")
+                );
                 assert!(
-                    output[0]["subscriptions"][0]["portal_url"]
-                        .as_str()
+                    subscription["portal_url"]
+                        .as_string()
                         .unwrap()
+                        .as_str()
                         .ends_with("/overview")
                 );
                 eyre::Ok(())
@@ -583,11 +592,12 @@ mod tests {
                 .render(Some(OutputFormat::Json), false, &cancellation)
                 .unwrap()
                 .unwrap();
-            let json: serde_json::Value = serde_json::from_str(&json).unwrap();
-            assert_eq!(json[0]["error"], message);
+            let json: Vec<Value> = facet_json::from_str(&json).unwrap();
+            let tenant = json[0].as_object().unwrap();
+            assert_eq!(tenant["error"], Value::from(message));
             assert_eq!(
-                json[0]["metadata_errors"][0],
-                format!("Tenant name unavailable: {message}")
+                tenant["metadata_errors"].as_array().unwrap()[0],
+                Value::from(format!("Tenant name unavailable: {message}"))
             );
             eyre::Ok(())
         }).unwrap();
@@ -688,19 +698,21 @@ mod tests {
         CancellationToken::new()
             .with_scope(|cancellation| {
                 let output = SubscriptionListOutput(tenants).into_cli_output();
-                let json: serde_json::Value = serde_json::from_str(
+                let json: Vec<Value> = facet_json::from_str(
                     &output
                         .render(Some(OutputFormat::Json), false, &cancellation)
                         .unwrap()
                         .unwrap(),
                 )
                 .unwrap();
-                assert_eq!(json[1]["subscriptions"], serde_json::json!([]));
-                assert!(json[1]["error"].is_null());
+                let empty_tenant = json[1].as_object().unwrap();
+                assert!(empty_tenant["subscriptions"].as_array().unwrap().is_empty());
+                assert!(empty_tenant.get("error").is_none_or(Value::is_null));
                 assert!(
-                    json[2]["error"]
-                        .as_str()
+                    json[2].as_object().unwrap()["error"]
+                        .as_string()
                         .unwrap()
+                        .as_str()
                         .contains("Authentication expired")
                 );
                 let text = output

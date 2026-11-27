@@ -2,20 +2,20 @@ use crate::DecorExtensions;
 use crate::HclProject;
 use crate::reflow::HclReflower;
 use eyre::bail;
-use hcl::edit::Decor;
-use hcl::edit::Decorate;
-use hcl::edit::RawString;
-use hcl::edit::expr::Expression;
-use hcl::edit::expr::ForExpr;
-use hcl::edit::expr::Traversal;
-use hcl::edit::expr::TraversalOperator;
-use hcl::edit::prelude::Span;
-use hcl::edit::structure::Block;
-use hcl::edit::structure::Body;
-use hcl::edit::structure::Structure;
-use hcl::edit::visit_mut::VisitMut;
-use hcl::edit::visit_mut::visit_expr_mut;
-use hcl::edit::visit_mut::visit_for_template_expr_mut;
+use hcl_edit::Decor;
+use hcl_edit::Decorate;
+use hcl_edit::RawString;
+use hcl_edit::expr::Expression;
+use hcl_edit::expr::ForExpr;
+use hcl_edit::expr::Traversal;
+use hcl_edit::expr::TraversalOperator;
+use hcl_edit::prelude::Span;
+use hcl_edit::structure::Block;
+use hcl_edit::structure::Body;
+use hcl_edit::structure::Structure;
+use hcl_edit::visit_mut::VisitMut;
+use hcl_edit::visit_mut::visit_expr_mut;
+use hcl_edit::visit_mut::visit_for_template_expr_mut;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -366,7 +366,7 @@ impl VisitMut for DependencyCollector {
         self.pop_scoped_variable(node.intro.value_var.as_str());
     }
 
-    fn visit_for_template_expr_mut(&mut self, node: &mut hcl::edit::template::ForTemplateExpr) {
+    fn visit_for_template_expr_mut(&mut self, node: &mut hcl_edit::template::ForTemplateExpr) {
         self.visit_expr_mut(&mut node.collection_expr);
         if let Some(key_var) = &node.key_var {
             self.push_scoped_variable(key_var.as_str());

@@ -1,10 +1,10 @@
 use crate::HclProject;
 use crate::reflow::HclReflower;
 use facet_value::Value;
-use hcl::edit::expr::Expression;
-use hcl::edit::structure::Body;
-use hcl::edit::visit_mut::VisitMut;
-use hcl::edit::visit_mut::visit_expr_mut;
+use hcl_edit::expr::Expression;
+use hcl_edit::structure::Body;
+use hcl_edit::visit_mut::VisitMut;
+use hcl_edit::visit_mut::visit_expr_mut;
 
 pub struct ReflowJsonAttributes;
 #[async_trait::async_trait]

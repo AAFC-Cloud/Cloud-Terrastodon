@@ -1,5 +1,5 @@
-use hcl::edit::structure::Block;
-use hcl::edit::structure::Body;
+use hcl_edit::structure::Block;
+use hcl_edit::structure::Body;
 use std::collections::HashSet;
 
 /// Converts a value to HCL text.

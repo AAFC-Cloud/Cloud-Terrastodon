@@ -20,8 +20,8 @@ use eyre::ensure;
 use facet::Facet;
 use facet::Type;
 use facet::UserType;
-use serde_json::Map;
-use serde_json::Value;
+use facet_value::Value;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 /// Execute registered verification requests against explicit operator-selected scopes.
@@ -65,14 +65,14 @@ impl TestRunArgs {
             "no runtime tests match {:?}",
             self.pattern
         );
-        let input: Map<String, Value> = match &self.input {
-            Some(path) => serde_json::from_slice(
+        let input: BTreeMap<String, Value> = match &self.input {
+            Some(path) => facet_json::from_slice(
                 &tokio::fs::read(path)
                     .await
                     .wrap_err("reading runtime test inputs")?,
             )
             .wrap_err("runtime test inputs must be an object keyed by registered case name")?,
-            None => Map::new(),
+            None => BTreeMap::new(),
         };
         // A manifest may be shared across several pattern-selected runs, but
         // misspelled case names must not silently discard approved inputs.
@@ -161,10 +161,15 @@ impl TestRunArgs {
         executor: &CloudTerrastodonExecutor,
     ) -> Result<String> {
         let mut fields = match input {
-            None => Map::new(),
-            Some(Value::Object(fields)) => fields.clone(),
-            Some(_) => {
-                eyre::bail!("case input must be a JSON object");
+            None => BTreeMap::new(),
+            Some(input) => {
+                let Some(fields) = input.as_object() else {
+                    eyre::bail!("case input must be a JSON object");
+                };
+                fields
+                    .iter()
+                    .map(|(name, value)| (name.as_str().to_owned(), value.clone()))
+                    .collect()
             }
         };
         let Type::User(UserType::Struct(record)) = registration.request.input_shape.ty else {
@@ -209,7 +214,7 @@ impl TestRunArgs {
                     account.as_deref(),
                     self.auth_source,
                 )?;
-                let selection = serde_json::from_str(&facet_json::to_string(&selection)?)?;
+                let selection = facet_json::from_str(&facet_json::to_string(&selection)?)?;
                 Self::insert_explicit(&mut fields, "auth_selection", selection)?;
             } else {
                 let selection = match (tenant, &self.account) {
@@ -225,7 +230,7 @@ impl TestRunArgs {
                         eyre::bail!("--tenant or --account is required for this test");
                     }
                 };
-                let selection = serde_json::from_str(&facet_json::to_string(&selection)?)?;
+                let selection = facet_json::from_str(&facet_json::to_string(&selection)?)?;
                 Self::insert_explicit(&mut fields, "authentication", selection)?;
             }
         }
@@ -247,28 +252,32 @@ impl TestRunArgs {
             Self::insert_explicit(
                 &mut fields,
                 "account_id",
-                serde_json::from_str(&facet_json::to_string(&account_id)?)?,
+                facet_json::from_str(&facet_json::to_string(&account_id)?)?,
             )?;
             Self::insert_explicit(
                 &mut fields,
                 "tenant",
-                serde_json::from_str(&facet_json::to_string(instance)?)?,
+                facet_json::from_str(&facet_json::to_string(instance)?)?,
             )?;
         }
         if has_field("org_url")
             && let Some(org) = &self.org
         {
-            Self::insert_explicit(&mut fields, "org_url", Value::String(org.to_string()))?;
+            Self::insert_explicit(&mut fields, "org_url", Value::from(org.to_string()))?;
         }
         if has_field("project")
             && let Some(project) = &self.project
         {
-            Self::insert_explicit(&mut fields, "project", Value::String(project.to_string()))?;
+            Self::insert_explicit(&mut fields, "project", Value::from(project.to_string()))?;
         }
-        Ok(serde_json::to_string(&fields)?)
+        Ok(facet_json::to_string(&fields)?)
     }
 
-    fn insert_explicit(fields: &mut Map<String, Value>, name: &str, value: Value) -> Result<()> {
+    fn insert_explicit(
+        fields: &mut BTreeMap<String, Value>,
+        name: &str,
+        value: Value,
+    ) -> Result<()> {
         if let Some(existing) = fields.get(name) {
             ensure!(
                 existing == &value,
@@ -288,14 +297,13 @@ mod tests {
 
     #[test]
     fn selected_scope_cannot_silently_replace_an_explicit_request_identity() -> Result<()> {
-        let mut fields = Map::new();
-        TestRunArgs::insert_explicit(&mut fields, "org_url", Value::String("approved".into()))?;
-        TestRunArgs::insert_explicit(&mut fields, "org_url", Value::String("approved".into()))?;
+        let mut fields = BTreeMap::new();
+        TestRunArgs::insert_explicit(&mut fields, "org_url", Value::from("approved"))?;
+        TestRunArgs::insert_explicit(&mut fields, "org_url", Value::from("approved"))?;
         assert!(
-            TestRunArgs::insert_explicit(&mut fields, "org_url", Value::String("different".into()))
-                .is_err()
+            TestRunArgs::insert_explicit(&mut fields, "org_url", Value::from("different")).is_err()
         );
-        assert_eq!(fields["org_url"], Value::String("approved".into()));
+        assert_eq!(fields["org_url"], Value::from("approved"));
         Ok(())
     }
     use cloud_terrastodon_app::OutputFormat;

@@ -1,4 +1,5 @@
 use crate::AuthContext;
+use crate::browser_access_token::form_urlencoded;
 use crate::container_registry_access_token_response::ContainerRegistryAccessTokenResponse;
 use crate::container_registry_refresh_token_response::ContainerRegistryRefreshTokenResponse;
 use crate::fetch_azure_bearer_access_token;
@@ -38,12 +39,13 @@ pub(crate) async fn authorize_container_registry(
             let origin = challenge.server().endpoint()?;
             let response = client
                 .post(origin.join("/oauth2/exchange?api-version=2021-07-01")?)
-                .form(&[
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .body(form_urlencoded(&[
                     ("grant_type", "access_token"),
                     ("service", challenge.server().as_str()),
                     ("tenant", tenant.to_string().as_str()),
                     ("access_token", token.access_token.as_str()),
-                ])
+                ]))
                 .send()
                 .await?
                 .error_for_status()?;
@@ -51,12 +53,13 @@ pub(crate) async fn authorize_container_registry(
             scope.bail_if_cancelled()?;
             let response = client
                 .post(origin.join("/oauth2/token?api-version=2021-07-01")?)
-                .form(&[
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .body(form_urlencoded(&[
                     ("grant_type", "refresh_token"),
                     ("service", challenge.server().as_str()),
                     ("scope", challenge.scope()),
                     ("refresh_token", refresh.refresh_token.as_str()),
-                ])
+                ]))
                 .send()
                 .await?
                 .error_for_status()?;

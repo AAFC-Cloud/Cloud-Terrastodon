@@ -6,8 +6,8 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use eyre::Result;
-use hcl::edit::Decorate;
-use hcl::edit::structure::Body;
+use hcl_edit::Decorate;
+use hcl_edit::structure::Body;
 use std::path::Path;
 
 pub async fn get_imports_from_existing(

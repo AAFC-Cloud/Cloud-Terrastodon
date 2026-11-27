@@ -1,11 +1,11 @@
 use crate::ProviderKind;
 use eyre::bail;
-use hcl::edit::expr::Expression;
-use hcl::edit::expr::TraversalOperator;
-use hcl::edit::parser;
-use hcl::edit::structure::Attribute;
-use hcl::edit::structure::Block;
-use hcl::edit::structure::BlockBuilder;
+use hcl_edit::expr::Expression;
+use hcl_edit::expr::TraversalOperator;
+use hcl_edit::parser;
+use hcl_edit::structure::Attribute;
+use hcl_edit::structure::Block;
+use hcl_edit::structure::BlockBuilder;
 use hcl_primitives::Ident;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]

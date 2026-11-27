@@ -1,3 +1,6 @@
+mod fs_pick_entry;
+mod json_path_value;
+mod liquid_query_value;
 pub mod pick_command_cli;
 pub mod pick_fs_command_cli;
 pub mod pick_stdin_command_cli;

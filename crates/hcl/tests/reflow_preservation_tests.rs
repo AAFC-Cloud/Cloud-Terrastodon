@@ -3,7 +3,7 @@
 use cloud_terrastodon_hcl::HclProject;
 use cloud_terrastodon_hcl::reflow::HclReflower;
 use cloud_terrastodon_hcl::reflow::ReflowByBlockIdentifier;
-use hcl::edit::structure::Body;
+use hcl_edit::structure::Body;
 use indoc::indoc;
 use std::collections::BTreeMap;
 use std::path::Path;

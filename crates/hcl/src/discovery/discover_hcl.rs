@@ -1,6 +1,6 @@
 use crate::HclProject;
 use crate::discovery::try_read_hcl_file;
-use hcl::edit::structure::Body;
+use hcl_edit::structure::Body;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio::task::JoinSet;

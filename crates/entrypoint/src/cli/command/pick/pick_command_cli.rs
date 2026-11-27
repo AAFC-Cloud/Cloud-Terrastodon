@@ -1,11 +1,15 @@
+use super::json_path_value::JsonPathValue;
+use super::liquid_query_value::liquid_query_value;
 use crate::cli::pick::pick_fs_command_cli::PickFsArgs;
 use crate::cli::pick::pick_stdin_command_cli::PickStdinArgs;
-use crate::serde_json_isolation::Value;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use facet::Facet;
+use facet_value::Value;
 use jmespath::Variable;
 use jsonpath_rust::JsonPath;
+use liquid::ParserBuilder;
+use liquid::model::Value as LiquidValue;
 use std::io::IsTerminal;
 use strum::Display;
 use tracing::instrument;
@@ -66,21 +70,28 @@ pub enum QueryEngine {
 impl QueryEngine {
     pub fn query(&self, data: &Value, query: &str) -> Result<String> {
         if query.is_empty() {
-            return crate::serde_json_isolation::to_string(data);
+            return Ok(facet_json::to_string(data)?);
         }
         match self {
-            QueryEngine::JsonPath => crate::serde_json_isolation::to_string(&data.query(query)?),
+            QueryEngine::JsonPath => {
+                let data = JsonPathValue::from(data);
+                Ok(facet_json::to_string(&data.query(query)?)?)
+            }
             QueryEngine::JmesPath => {
                 let expr = jmespath::compile(query)?;
+                let data = Variable::from_json(&facet_json::to_string(data)?)
+                    .map_err(|error| eyre::eyre!("converting input for JMESPath: {error}"))?;
                 let result = expr.search(data)?;
                 match *result {
                     Variable::String(ref s) => Ok(s.to_owned()),
-                    _ => crate::serde_json_isolation::to_string(&result),
+                    _ => Ok(result.to_string()),
                 }
             }
             QueryEngine::Liquid => {
-                let template = liquid::ParserBuilder::with_stdlib().build()?.parse(query)?;
-                let globals = liquid::to_object(data)?;
+                let template = ParserBuilder::with_stdlib().build()?.parse(query)?;
+                let LiquidValue::Object(globals) = liquid_query_value(data)? else {
+                    eyre::bail!("Liquid query input must be a JSON object");
+                };
                 let rendered = template.render(&globals)?;
                 Ok(rendered)
             }
@@ -135,27 +146,41 @@ mod test {
     use crate::cli::pick::PickCommand;
     use crate::cli::pick::QueryEngine;
     use crate::cli::pick::pick_command_cli::resolve_default_pick_command;
-    use crate::serde_json_isolation::json;
+    use facet_value::Value;
 
     #[test]
     fn query_engine_examples_work() -> eyre::Result<()> {
-        let example_obj = json!({
-            "name": "Alice",
-            "age": 30,
-            "description": "A software developer"
-        });
+        let example_obj: Value = facet_json::from_str(
+            r#"{"name":"Alice","age":30,"description":"A software developer"}"#,
+        )?;
         let cases = [
-            (QueryEngine::JsonPath, "$..['name', 'description']"),
-            (QueryEngine::JmesPath, "[name, age]"),
-            (QueryEngine::Liquid, "{{ name }} {{ description }}"),
+            (
+                QueryEngine::JsonPath,
+                "$..['name', 'description']",
+                r#"["Alice","A software developer"]"#,
+            ),
+            (QueryEngine::JmesPath, "[name, age]", r#"["Alice",30]"#),
+            (QueryEngine::JmesPath, "name", "Alice"),
+            (
+                QueryEngine::Liquid,
+                "{{ name }} {{ description }}",
+                "Alice A software developer",
+            ),
         ];
-        for (engine, example) in cases {
+        for (engine, example, expected) in cases {
             let result = engine.query(&example_obj, example)?;
-            println!(
-                "Engine: {}, Example: {}, Result: {}",
-                engine, example, result
-            );
+            assert_eq!(result, expected, "{engine}: {example}");
         }
+        Ok(())
+    }
+
+    #[test]
+    fn jsonpath_keeps_custom_membership_and_number_types() -> eyre::Result<()> {
+        let input: Value = facet_json::from_str(r#"{"values":[1,1.0,"1",2],"allowed":[1]}"#)?;
+        assert_eq!(
+            QueryEngine::JsonPath.query(&input, "$.values[?in(@, $.allowed)]")?,
+            "[1]"
+        );
         Ok(())
     }
 

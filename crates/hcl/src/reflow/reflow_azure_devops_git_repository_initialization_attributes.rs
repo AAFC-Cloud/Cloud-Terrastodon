@@ -2,12 +2,12 @@ use crate::HclProject;
 use crate::reflow::HclReflower;
 use cloud_terrastodon_hcl_types::AzureDevOpsResourceBlockKind;
 use cloud_terrastodon_hcl_types::ResourceBlockResourceKind;
-use hcl::edit::Ident;
-use hcl::edit::expr::Array;
-use hcl::edit::expr::Expression;
-use hcl::edit::structure::Attribute;
-use hcl::edit::structure::Block;
-use hcl::edit::visit_mut::VisitMut;
+use hcl_edit::Ident;
+use hcl_edit::expr::Array;
+use hcl_edit::expr::Expression;
+use hcl_edit::structure::Attribute;
+use hcl_edit::structure::Block;
+use hcl_edit::visit_mut::VisitMut;
 use tracing::warn;
 
 pub struct ReflowAzureDevOpsGitRepositoryInitializationAttributes;
@@ -23,7 +23,7 @@ impl HclReflower for ReflowAzureDevOpsGitRepositoryInitializationAttributes {
     }
 }
 impl VisitMut for ReflowAzureDevOpsGitRepositoryInitializationAttributes {
-    fn visit_block_mut(&mut self, node: &mut hcl::edit::structure::Block) {
+    fn visit_block_mut(&mut self, node: &mut hcl_edit::structure::Block) {
         if node.ident.as_str() != "resource" {
             return;
         }

@@ -6,8 +6,9 @@ members = ["crates/*", "examples/standalone-cli", "examples/group-management", "
 # `deny` permits test macros to apply their own test-only lint allowances.
 expect_used = "deny"
 unwrap_used = "deny"
-disallowed_types = "warn"
+disallowed_types = "deny"
 disallowed_macros = "deny"
+disallowed_methods = "deny"
 
 [workspace.package]
 edition = "2024"
@@ -32,15 +33,13 @@ categories = [
 
 [workspace.dependencies]
 itertools = "0.14.0"
-serde = "1.0.197"
-serde_json = "1.0.116"
 tokio = { version = "1.44.2", features = ["full"] }
 tempfile = "3.10.1"
 async-recursion = "1.1.0"
 indoc = "2.0.5"
-hcl-rs = "0.19.4"
+hcl-edit = "0.9.6"
 tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tracing-error = "0.2.0"
 mimalloc = "0.1.52"
 tracy-client = { version = "0.18.4", default-features = false, features = [
@@ -92,7 +91,7 @@ syn = { version = "2.0.106", default-features = false, features = [
 eyre = "0.6.12"
 color-eyre = "0.6.3"
 bstr = "1.11.3"
-reqwest = { version = "0.12.22", features = ["json"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["charset", "http2", "native-tls-no-alpn", "system-proxy"] }
 quick-xml = "=0.39.4"
 url = "2.5.8"
 base64 = "0.22.1"
@@ -292,7 +291,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [build-dependencies]
-embed-resource = "3.0.6"
+embed-resource = { package = "teamy-embed-resource", version = "=0.1.0", default-features = false }
 
 [dependencies]
 # Make the entrypoint optional behind a feature so library users don't pull it in by default
@@ -467,8 +466,9 @@ unused_lifetimes = "warn"
 # Packages with their own lint tables cannot also inherit workspace lints.
 expect_used = "deny"
 unwrap_used = "deny"
-disallowed_types = "warn"
+disallowed_types = "deny"
 disallowed_macros = "deny"
+disallowed_methods = "deny"
 cargo = { level = "warn", priority = -1 }
 complexity = { level = "warn", priority = -1 }
 correctness = { level = "warn", priority = -1 }

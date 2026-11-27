@@ -1,4 +1,4 @@
-use hcl::edit::Decor;
+use hcl_edit::Decor;
 
 pub trait DecorExtensions {
     fn is_empty(&self) -> bool;

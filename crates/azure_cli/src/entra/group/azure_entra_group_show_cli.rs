@@ -365,6 +365,7 @@ mod tests {
     use cloud_terrastodon_app::OutputFormat;
     use cloud_terrastodon_azure::EntraDirectoryObjectUser;
     use cloud_terrastodon_command::CancellationToken;
+    use facet_value::Value;
 
     fn example_report() -> GroupShowOutput {
         let group = facet_json::from_str::<EntraGroup>(
@@ -477,9 +478,11 @@ mod tests {
                 let json = output
                     .render(Some(OutputFormat::Json), false, &cancellation)?
                     .unwrap();
-                let json: serde_json::Value = serde_json::from_str(&json)?;
-                assert!(json[0]["members"][0]["displayName"].is_null());
-                assert!(json[0]["members"][0]["userPrincipalName"].is_null());
+                let json: Vec<Value> = facet_json::from_str(&json)?;
+                let group = json[0].as_object().unwrap();
+                let member = group["members"].as_array().unwrap()[0].as_object().unwrap();
+                assert!(member.get("displayName").is_none_or(Value::is_null));
+                assert!(member.get("userPrincipalName").is_none_or(Value::is_null));
                 eyre::Ok(())
             })
             .unwrap();
@@ -496,22 +499,33 @@ mod tests {
                     .unwrap()
                     .unwrap();
                 assert!(!json.contains('\x1b'));
-                let json: serde_json::Value = serde_json::from_str(&json).unwrap();
-                assert_eq!(json.as_array().unwrap().len(), 1);
-                assert_eq!(json[0]["group"]["displayName"], "Synthetic Test Group");
+                let json: Vec<Value> = facet_json::from_str(&json).unwrap();
+                assert_eq!(json.len(), 1);
+                let result = json[0].as_object().unwrap();
+                let member = result["members"].as_array().unwrap()[0]
+                    .as_object()
+                    .unwrap();
+                let owner = result["owners"].as_array().unwrap()[0].as_object().unwrap();
+                let assignment = result["role_assignments"].as_array().unwrap()[0]
+                    .as_array()
+                    .unwrap();
                 assert_eq!(
-                    json[0]["members"][0]["userPrincipalName"],
-                    "member@example.invalid"
+                    result["group"].as_object().unwrap()["displayName"],
+                    Value::from("Synthetic Test Group")
                 );
-                assert_eq!(json[0]["owners"][0]["@odata.type"], "#microsoft.graph.user");
-                assert_eq!(json[0]["role_assignments"][0].as_array().unwrap().len(), 2);
                 assert_eq!(
-                    json[0]["role_assignments"][0][0]["scope"],
-                    "/subscriptions/33333333-3333-3333-3333-333333333333"
+                    member["userPrincipalName"],
+                    Value::from("member@example.invalid")
+                );
+                assert_eq!(owner["@odata.type"], Value::from("#microsoft.graph.user"));
+                assert_eq!(assignment.len(), 2);
+                assert_eq!(
+                    assignment[0].as_object().unwrap()["scope"],
+                    Value::from("/subscriptions/33333333-3333-3333-3333-333333333333")
                 );
                 assert_eq!(
-                    json[0]["role_assignments"][0][1]["display_name"],
-                    "Synthetic Reader"
+                    assignment[1].as_object().unwrap()["display_name"],
+                    Value::from("Synthetic Reader")
                 );
                 eyre::Ok(())
             })

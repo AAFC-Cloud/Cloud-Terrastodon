@@ -1,4 +1,4 @@
-use hcl::edit::structure::Body;
+use hcl_edit::structure::Body;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::ops::DerefMut;

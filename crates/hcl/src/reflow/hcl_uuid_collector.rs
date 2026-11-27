@@ -1,8 +1,8 @@
 use crate::HclProject;
 use cloud_terrastodon_azure::uuid::Uuid;
-use hcl::edit::expr::Expression;
-use hcl::edit::visit::Visit;
-use hcl::edit::visit::visit_expr;
+use hcl_edit::expr::Expression;
+use hcl_edit::visit::Visit;
+use hcl_edit::visit::visit_expr;
 use std::collections::HashSet;
 use std::str::FromStr;
 
@@ -35,7 +35,7 @@ impl Visit for HclUuidCollector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hcl::edit::structure::Body;
+    use hcl_edit::structure::Body;
     use std::path::PathBuf;
 
     #[test]

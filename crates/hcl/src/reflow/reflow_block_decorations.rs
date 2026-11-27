@@ -1,8 +1,8 @@
 use crate::HclProject;
 use crate::reflow::HclReflower;
-use hcl::edit::Decorate;
-use hcl::edit::structure::Body;
-use hcl::edit::structure::Structure;
+use hcl_edit::Decorate;
+use hcl_edit::structure::Body;
+use hcl_edit::structure::Structure;
 use std::mem;
 
 pub struct ReflowBlockDecorations;

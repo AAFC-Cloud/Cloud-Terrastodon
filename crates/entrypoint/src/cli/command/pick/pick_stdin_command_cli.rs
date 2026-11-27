@@ -1,11 +1,11 @@
 use crate::cli::pick::pick_command_cli::PickCommonArgs;
 use crate::cli::pick::pick_command_cli::write_selected_lines;
-use crate::serde_json_isolation::Value;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use facet::Facet;
+use facet_value::Value;
 use std::io::Read;
 use strum::Display;
 use tracing::instrument;
@@ -73,7 +73,7 @@ impl PickStdinArgs {
         match input_format {
             InputFormat::Json => {
                 let stdin_json: Vec<Value> = trace_span!("pick_stdin_parse_json")
-                    .in_scope(|| crate::serde_json_isolation::from_str(&stdin_buf))?;
+                    .in_scope(|| facet_json::from_str(&stdin_buf))?;
 
                 let choices = trace_span!("pick_stdin_build_json_choices").in_scope(|| {
                     stdin_json
@@ -91,7 +91,7 @@ impl PickStdinArgs {
                     .pick_inner(!common.single, choices, cancellation)
                     .await?;
 
-                crate::serde_json_isolation::to_writer_pretty(std::io::stdout(), &rtn)?;
+                facet_json::to_writer_std_pretty(std::io::stdout(), &rtn)?;
             }
             InputFormat::Lines => {
                 let choices = trace_span!("pick_stdin_build_line_choices").in_scope(|| {

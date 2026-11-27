@@ -2,13 +2,13 @@ use crate::HclProject;
 use crate::discovery::ImportBlockDiscoverer;
 use crate::reflow::HclReflower;
 use cloud_terrastodon_azure::ScopeImpl;
-use hcl::edit::expr::Expression;
-use hcl::edit::structure::AttributeMut;
-use hcl::edit::structure::Block;
-use hcl::edit::visit::Visit;
-use hcl::edit::visit_mut::VisitMut;
-use hcl::edit::visit_mut::visit_attr_mut;
-use hcl::edit::visit_mut::visit_block_mut;
+use hcl_edit::expr::Expression;
+use hcl_edit::structure::AttributeMut;
+use hcl_edit::structure::Block;
+use hcl_edit::visit::Visit;
+use hcl_edit::visit_mut::VisitMut;
+use hcl_edit::visit_mut::visit_attr_mut;
+use hcl_edit::visit_mut::visit_block_mut;
 
 #[derive(Default)]
 pub struct ReflowExpressionsUseImportedResourceBlocks {

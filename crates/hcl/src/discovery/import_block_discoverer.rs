@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure::ScopeImpl;
-use hcl::edit::expr::Expression;
-use hcl::edit::structure::Block;
-use hcl::edit::visit::Visit;
+use hcl_edit::expr::Expression;
+use hcl_edit::structure::Block;
+use hcl_edit::visit::Visit;
 use std::collections::HashMap;
 
 #[derive(Default)]

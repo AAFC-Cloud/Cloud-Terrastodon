@@ -32,7 +32,7 @@ facet-value = { workspace = true }
 itertools = { workspace = true }
 indoc = { workspace = true }
 reqwest = { workspace = true }
-hcl-rs = { workspace = true }
+hcl-edit = { workspace = true }
 tracing = { workspace = true }
 tempfile = { workspace = true }
 async-trait.workspace = true

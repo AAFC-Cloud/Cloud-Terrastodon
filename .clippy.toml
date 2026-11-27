@@ -2,15 +2,37 @@
 # Its generated 'ʄ lifetime (U+0284) is already covered by Latin.
 allowed-scripts = ["Latin", "Common"]
 
-# Fail-fast joins can abandon cancellation deferrals in sibling operations.
+disallowed-methods = [
+    { path = "serde_json::from_str", reason = "Use facet_json::from_str instead." },
+    { path = "serde_json::from_slice", reason = "Use facet_json::from_slice instead." },
+    { path = "serde_json::to_string", reason = "Use facet_json::to_string instead." },
+    { path = "serde_json::to_string_pretty", reason = "Use facet_json::to_string_pretty instead." },
+    { path = "serde_json::to_writer", reason = "Use facet_json::to_writer_std instead." },
+    { path = "serde_json::to_writer_pretty", reason = "Use facet_json::to_writer_std_pretty instead." },
+]
+
 # https://doc.rust-lang.org/clippy/lint_configuration.html#disallowed-macros
 disallowed-macros = [
+    { path = "serde::Serialize", reason = "Derive facet::Facet instead." },
+    { path = "serde::Deserialize", reason = "Derive facet::Facet instead." },
+    { path = "serde_derive::Serialize", reason = "Derive facet::Facet instead." },
+    { path = "serde_derive::Deserialize", reason = "Derive facet::Facet instead." },
+    { path = "serde_json::json", reason = "Use facet_value::Value or typed Facet models instead." },
+    # Fail-fast joins can abandon cancellation deferrals in sibling operations.
     { path = "tokio::try_join", reason = "Use execution::join2 through join5 or map_concurrent to cancel and drain sibling operations before returning an error." },
     { path = "futures::try_join", reason = "Use execution::join2 through join5 or map_concurrent to cancel and drain sibling operations before returning an error." },
 ]
 
-# Prefer the shared domain wrapper for opaque JSON; known schemas remain typed.
 disallowed-types = [
+    { path = "serde::Serialize", reason = "Use facet::Facet instead." },
+    { path = "serde::Deserialize", reason = "Use facet::Facet instead." },
+    { path = "serde::de::DeserializeOwned", reason = "Use facet::Facet instead." },
+    { path = "serde_core::Serialize", reason = "Use facet::Facet instead." },
+    { path = "serde_core::Deserialize", reason = "Use facet::Facet instead." },
+    { path = "serde_core::de::DeserializeOwned", reason = "Use facet::Facet instead." },
+    { path = "serde_json::Value", reason = "Use facet_value::Value for manipulating JSON, ArbitraryJson for opaque JSON, or typed Facet models for known schemas." },
+    { path = "serde_json::Map", reason = "Use facet_value::Value or typed Facet models instead." },
+    # Prefer the shared domain wrapper for opaque JSON; known schemas remain typed.
     { path = "facet_json::RawJson", reason = "Use cloud_terrastodon_azure_types::ArbitraryJson for opaque JSON and typed records for known schemas. Reserve RawJson for explicit serialization or transport boundaries with a narrow lint exception." },
 ]
 

@@ -13,6 +13,7 @@ use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use teamy_tracing::DiagnosticReport;
+use teamy_tracing::Diagnostics;
 use teamy_tracing::capture::CaptureLayer;
 use teamy_tracing::capture::LogBuffer;
 use teamy_tracing::capture::LogValue;
@@ -57,12 +58,10 @@ fn reports_remain_readable_in_terminal_records_and_json() {
     let writer = CapturedWriter(Arc::clone(&json));
     let subscriber = tracing_subscriber::registry()
         .with(CaptureLayer::new(&buffer, Arc::new(|| true), |_| {}))
-        .with(
-            tracing_subscriber::fmt::layer()
-                .json()
-                .with_ansi(false)
-                .with_writer(move || writer.clone()),
-        )
+        .with(teamy_tracing::json_layer(
+            move || writer.clone(),
+            Diagnostics::default(),
+        ))
         .with(ErrorLayer::default());
 
     let retained = tracing::subscriber::with_default(subscriber, || {

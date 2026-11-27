@@ -1,8 +1,7 @@
+use super::fs_pick_entry::FsPickEntry;
 use crate::cli::pick::pick_command_cli::PickCommonArgs;
 use crate::cli::pick::pick_command_cli::QueryEngine;
 use crate::cli::pick::pick_command_cli::write_selected_lines;
-use crate::serde_json_isolation::Value;
-use crate::serde_json_isolation::json;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_user_input::CandidateSink;
 use cloud_terrastodon_user_input::Choice;
@@ -16,12 +15,6 @@ use tracing::Instrument;
 use tracing::info;
 use tracing::instrument;
 use tracing::trace_span;
-
-#[derive(Debug, Clone)]
-struct FsPickEntry {
-    path: String,
-    value: Value,
-}
 
 /// Pick from the current working directory.
 #[derive(Facet, Debug, Clone, Default)]
@@ -84,19 +77,20 @@ async fn visit_fs_entries(
             }
 
             batch.push(FsPickEntry {
-                path: relative_path.clone(),
-                value: json!({
-                    "path": relative_path,
-                    "absolute_path": path.to_string_lossy(),
-                    "name": file_name,
-                    "stem": path.file_stem().map(|part| part.to_string_lossy().to_string()),
-                    "extension": path.extension().map(|part| part.to_string_lossy().to_string()),
-                    "depth": depth,
-                    "type": entry_type,
-                    "is_dir": file_type.is_dir(),
-                    "is_file": file_type.is_file(),
-                    "is_symlink": file_type.is_symlink(),
-                }),
+                path: relative_path,
+                absolute_path: path.to_string_lossy().into_owned(),
+                name: file_name,
+                stem: path
+                    .file_stem()
+                    .map(|part| part.to_string_lossy().into_owned()),
+                extension: path
+                    .extension()
+                    .map(|part| part.to_string_lossy().into_owned()),
+                depth,
+                entry_type,
+                is_dir: file_type.is_dir(),
+                is_file: file_type.is_file(),
+                is_symlink: file_type.is_symlink(),
             });
         }
 
@@ -163,7 +157,7 @@ async fn stream_fs_choices(
             let mut choices = Vec::with_capacity(entries.len());
             for entry in entries {
                 choices.push(Choice {
-                    key: query_engine.query(&entry.value, query)?,
+                    key: query_engine.query(&facet_value::to_value(&entry)?, query)?,
                     value: entry.path,
                 });
             }
@@ -220,16 +214,16 @@ mod test {
                     .iter()
                     .find(|entry| entry.path == "nested")
                     .unwrap();
-                assert_eq!(nested_dir.value["type"], "dir");
-                assert_eq!(nested_dir.value["depth"], 0);
+                assert_eq!(nested_dir.entry_type, "dir");
+                assert_eq!(nested_dir.depth, 0);
 
                 let nested_file = recursive
                     .iter()
                     .find(|entry| entry.path == nested_file_path)
                     .unwrap();
-                assert_eq!(nested_file.value["name"], "beta.txt");
-                assert_eq!(nested_file.value["extension"], "txt");
-                assert_eq!(nested_file.value["depth"], 1);
+                assert_eq!(nested_file.name, "beta.txt");
+                assert_eq!(nested_file.extension.as_deref(), Some("txt"));
+                assert_eq!(nested_file.depth, 1);
 
                 Ok(())
             })

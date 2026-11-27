@@ -1,7 +1,7 @@
 use crate::AsHclString;
 use eyre::Result;
-use hcl::edit::structure::Body;
-use hcl::edit::structure::IntoBlocks;
+use hcl_edit::structure::Body;
+use hcl_edit::structure::IntoBlocks;
 
 /// Parses a value's HCL text into owned blocks.
 pub trait TryAsHclBlocks {

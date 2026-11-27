@@ -37,4 +37,6 @@ unsafe_code = "forbid"
 [lints.clippy]
 expect_used = "deny"
 unwrap_used = "deny"
-disallowed_types = "warn"
+disallowed_types = "deny"
+disallowed_macros = "deny"
+disallowed_methods = "deny"

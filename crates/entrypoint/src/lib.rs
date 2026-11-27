@@ -6,7 +6,6 @@ mod interactive;
 mod menu;
 mod menu_action;
 mod noninteractive;
-mod serde_json_isolation;
 mod version;
 #[cfg(windows)]
 mod windows_shell_launch;

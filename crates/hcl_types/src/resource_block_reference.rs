@@ -5,10 +5,10 @@ use crate::ProviderKind;
 use crate::ResourceBlockResourceKind;
 use eyre::Context;
 use eyre::bail;
-use hcl::edit::expr::Expression;
-use hcl::edit::expr::Traversal;
-use hcl::edit::expr::TraversalOperator;
-use hcl::edit::parser;
+use hcl_edit::expr::Expression;
+use hcl_edit::expr::Traversal;
+use hcl_edit::expr::TraversalOperator;
+use hcl_edit::parser;
 use std::any::type_name;
 use std::str::FromStr;
 

@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use hcl::edit::structure::Body;
+use hcl_edit::structure::Body;
 
 #[test]
 fn utf8_problem() {

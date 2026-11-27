@@ -4,8 +4,8 @@ use crate::HclResourceBlock;
 use crate::TerraformBlock;
 use crate::data_block::HclDataBlock;
 use eyre::Result;
-use hcl::edit::structure::Block;
-use hcl::edit::structure::Body;
+use hcl_edit::structure::Block;
+use hcl_edit::structure::Body;
 use itertools::Itertools;
 use strum::EnumDiscriminants;
 

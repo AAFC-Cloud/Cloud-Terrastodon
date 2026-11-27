@@ -1,9 +1,9 @@
 #![cfg(test)]
 
 use eyre::bail;
-use hcl::edit::expr::Expression;
-use hcl::edit::expr::TraversalOperator;
-use hcl::edit::structure::Body;
+use hcl_edit::expr::Expression;
+use hcl_edit::expr::TraversalOperator;
+use hcl_edit::structure::Body;
 use indoc::indoc;
 
 #[test]

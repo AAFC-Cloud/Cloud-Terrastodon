@@ -193,6 +193,7 @@ mod test {
     use cloud_terrastodon_rest::parse_response_body;
     use facet::Facet;
     use facet_json::RawJson;
+    use facet_value::Value;
     use http::StatusCode;
     use reqwest::Url;
     use reqwest::header::HeaderMap;
@@ -313,9 +314,10 @@ mod test {
                 response_output(response)
                     .write_to(None, false, &mut json, &cancellation)
                     .unwrap();
-                let json: serde_json::Value = serde_json::from_slice(&json).unwrap();
-                assert_eq!(json["status"], 200);
-                assert_eq!(json["ok"], true);
+                let json: Value = facet_json::from_slice(&json).unwrap();
+                let json = json.as_object().unwrap();
+                assert_eq!(json["status"], Value::from(200));
+                assert_eq!(json["ok"].as_bool(), Some(true));
                 assert!(json.get("headers").is_some());
                 eyre::Ok(())
             })

@@ -1,7 +1,7 @@
 use cloud_terrastodon_hcl_types::CodeReference;
 use eyre::Context;
 use eyre::Result;
-use hcl::edit::structure::Body;
+use hcl_edit::structure::Body;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio::fs;

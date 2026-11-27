@@ -69,7 +69,7 @@ Create `crates/azure_types/src/<resource>_name.rs`.
 Follow the repo slug pattern:
 - Implement `Slug`
 - Validate using Azure naming rules from Microsoft docs
-- Add `FromStr`, `Display`, serde, `Deref`, `TryFrom<CompactString>`
+- Add `FromStr`, `Display`, `Deref`, and `TryFrom<CompactString>`. Use a validating Facet proxy for the wire string.
 - Add property tests or fuzz tests when the adjacent resources do so
 
 Naming rules checklist:
@@ -86,7 +86,7 @@ Use the repo resource-id pattern:
 - Store `resource_group_id` plus typed name for resource-group-scoped resources
 - Implement `HasSlug`, `AsRef`, `NameValidatable`, `HasPrefix`, `TryFromResourceGroupScoped`
 - Implement `Scope`
-- Implement serde via expanded ARM id strings
+- Use a Facet proxy to parse and serialize expanded ARM ID strings
 - Add round-trip and constructor tests
 
 If the resource is a first-class scope:
@@ -104,7 +104,7 @@ Rules:
 - Preserve `tenant_id` when the repo pattern expects it
 - Use `deserialize_default_if_null` for arrays and maps that Azure may return as `null`
 - Prefer typed nested structs for fields the repo will actually use
-- Leave unknown or low-value areas as `serde_json::Value` until there is a clear need
+- Use `ArbitraryJson` for genuinely open property bags and opaque values
 
 When choosing how much to model:
 - Strong-type fields needed for CLI filtering, correlation, or follow-up requests

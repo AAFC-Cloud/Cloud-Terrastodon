@@ -2,9 +2,9 @@ use crate::HclProviderReference;
 use crate::ProviderKind;
 use eyre::OptionExt;
 use eyre::bail;
-use hcl::edit::structure::Attribute;
-use hcl::edit::structure::Block;
-use hcl::edit::structure::BlockLabel;
+use hcl_edit::structure::Attribute;
+use hcl_edit::structure::Block;
+use hcl_edit::structure::BlockLabel;
 use hcl_primitives::Ident;
 use std::str::FromStr;
 

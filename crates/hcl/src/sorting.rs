@@ -1,4 +1,4 @@
-use hcl::edit::structure::Block;
+use hcl_edit::structure::Block;
 use itertools::Itertools;
 
 pub trait HclBlockSortable: Iterator<Item = Block> {

@@ -1,6 +1,6 @@
 use eyre::Context;
 use eyre::Result;
-use hcl::edit::structure::Body;
+use hcl_edit::structure::Body;
 use std::ffi::OsStr;
 use std::path::Path;
 use tracing::debug;

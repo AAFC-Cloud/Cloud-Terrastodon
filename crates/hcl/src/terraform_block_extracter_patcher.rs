@@ -1,5 +1,5 @@
 use cloud_terrastodon_hcl_types::TerraformBlock;
-use hcl::edit::visit_mut::VisitMut;
+use hcl_edit::visit_mut::VisitMut;
 use tracing::error;
 use tracing::warn;
 
@@ -8,7 +8,7 @@ pub struct TerraformBlockExtracterPatcher {
     pub terraform_block: TerraformBlock,
 }
 impl VisitMut for TerraformBlockExtracterPatcher {
-    fn visit_body_mut(&mut self, body: &mut hcl::edit::structure::Body) {
+    fn visit_body_mut(&mut self, body: &mut hcl_edit::structure::Body) {
         let terraform_blocks = body.remove_blocks("terraform");
         for block in terraform_blocks {
             if let Err(e) = TerraformBlock::assert_is_terraform_block(&block) {

@@ -56,4 +56,6 @@ pub use crate::tf_work_dir::*;
 pub use crate::try_as_hcl_blocks::*;
 pub use crate::users_lookup_body::*;
 pub use crate::version::*;
-pub use hcl::*;
+pub use hcl_edit as edit;
+pub use hcl_primitives::InternalString;
+pub use hcl_primitives::Number;

@@ -29,7 +29,12 @@ fn add_build_script_inputs() {
 fn add_exe_resources() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed=resources");
 
-    embed_resource::compile("resources/app.rc", embed_resource::NONE).manifest_required()?;
+    embed_resource::compile_for(
+        "resources/app.rc",
+        ["cloud_terrastodon"],
+        embed_resource::NONE,
+    )
+    .manifest_required()?;
     Ok(())
 }
 

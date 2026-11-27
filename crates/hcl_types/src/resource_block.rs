@@ -5,9 +5,9 @@ use crate::ProviderKind;
 use crate::ResourceBlockReference;
 use crate::ResourceBlockResourceKind;
 use crate::resource_block_kind_other::OtherResourceBlockKind;
-use hcl::edit::structure::Block;
-use hcl::edit::structure::Body;
-use hcl::edit::structure::Structure;
+use hcl_edit::structure::Block;
+use hcl_edit::structure::Body;
+use hcl_edit::structure::Structure;
 use hcl_primitives::Ident;
 
 #[derive(Debug, Clone, Eq, PartialEq)]

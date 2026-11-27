@@ -2,9 +2,9 @@ use crate::AzureAdDataBlockKind;
 use crate::TryAsHclBlocks;
 use crate::data_block::HclDataBlock;
 use eyre::Context;
-use hcl::edit::structure::Attribute;
-use hcl::edit::structure::Body;
-use hcl::edit::structure::IntoBlocks;
+use hcl_edit::structure::Attribute;
+use hcl_edit::structure::Body;
+use hcl_edit::structure::IntoBlocks;
 use hcl_primitives::Ident;
 
 #[derive(Debug, Default)]

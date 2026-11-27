@@ -1,8 +1,8 @@
 #![cfg(test)]
 
-use hcl::edit::Decor;
-use hcl::edit::Decorate;
-use hcl::edit::structure::Body;
+use hcl_edit::Decor;
+use hcl_edit::Decorate;
+use hcl_edit::structure::Body;
 use indoc::indoc;
 
 #[test]

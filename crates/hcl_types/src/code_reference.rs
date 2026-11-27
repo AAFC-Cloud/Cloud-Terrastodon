@@ -1,7 +1,7 @@
 use crate::HclBlock;
 use eyre::Result;
-use hcl::edit::prelude::Span;
-use hcl::edit::structure::Block;
+use hcl_edit::prelude::Span;
+use hcl_edit::structure::Block;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
