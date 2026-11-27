@@ -15,6 +15,9 @@ pub struct MicrosoftGraphResponse<T> {
     pub count: Option<usize>,
     #[facet(rename = "@odata.nextLink")]
     pub next_link: Option<String>,
+    /// Graph may return query optimization advice alongside a page.
+    #[facet(rename = "@microsoft.graph.tips")]
+    pub tips: Option<String>,
     pub value: Vec<T>,
 }
 
@@ -27,6 +30,7 @@ impl<'a, T: Arbitrary<'a>> Arbitrary<'a> for MicrosoftGraphResponse<T> {
             context: None,
             count: input.arbitrary::<bool>()?.then_some(value.len()),
             next_link: None,
+            tips: None,
             value,
         })
     }
