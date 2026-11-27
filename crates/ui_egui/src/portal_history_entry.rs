@@ -38,6 +38,7 @@ impl PortalHistoryEntry {
                     | PortalPage::EntraUsers
                     | PortalPage::EntraGroups
                     | PortalPage::EntraAppRegistrations
+                    | PortalPage::EntraMyUser
                     | PortalPage::PimEntraRoles
                     | PortalPage::PimAzureResources
             ),

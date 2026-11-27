@@ -2,7 +2,9 @@ use crate::app::MyApp;
 use crate::entra_application_credential_row::EntraApplicationCredentialRow;
 use crate::entra_application_registration_row::EntraApplicationRegistrationRow;
 use crate::entra_directory_ui::copyable_id;
+use crate::entra_directory_ui::inventory_progress;
 use crate::entra_directory_ui::loaded;
+use crate::entra_directory_ui::show_inventory_errors;
 use crate::icons::page_icon;
 use crate::portal_page::PortalPage;
 use crate::reflected_table::ReflectedTable;
@@ -10,7 +12,6 @@ use crate::reflected_table_column::ReflectedTableColumn;
 use crate::reflected_value::ReflectedValue;
 use cloud_terrastodon_azure::ArbitraryJson;
 use cloud_terrastodon_azure::EntraApplicationObjectId;
-use cloud_terrastodon_command::app_work::Loadable;
 use eframe::egui::Grid;
 use eframe::egui::Id;
 use eframe::egui::ImageSource;
@@ -19,35 +20,31 @@ use eframe::egui::Ui;
 use jiff::Timestamp;
 use std::sync::Arc;
 use std::time::Duration;
-use std::time::Instant;
 
 pub(crate) fn show_app_registrations(app: &mut MyApp, ui: &mut Ui) {
-    let response = &app.azure.entra_directory.app_registrations;
-    let Some(applications) = loaded(ui, response, "Could not load app registrations.") else {
-        return;
-    };
-    let Loadable::Loaded { finished_at, .. } = response else {
-        return;
-    };
+    app.azure
+        .entra_directory
+        .app_registrations
+        .receive_pages(|application| application.id);
+    let inventory = &app.azure.entra_directory.app_registrations;
+    show_inventory_errors(ui, inventory, "Could not load app registrations.");
+    let progress = inventory_progress(inventory);
 
     let id = Id::new(("entra-app-registrations", app.azure.account_generation));
-    let cache_id = Id::new("entra-app-registration-rows");
+    let cache_id = ui.make_persistent_id("entra-app-registration-rows");
     let now = Timestamp::now();
     let minute = now.as_second().div_euclid(60);
-    let snapshot = (app.azure.account_generation, *finished_at, minute);
+    let snapshot = (app.azure.account_generation, inventory.revision, minute);
     let rows = ui
         .data(|data| {
-            data.get_temp::<(
-                (u64, Instant, i64),
-                Arc<Vec<EntraApplicationRegistrationRow>>,
-            )>(cache_id)
+            data.get_temp::<((u64, u64, i64), Arc<Vec<EntraApplicationRegistrationRow>>)>(cache_id)
         })
         .filter(|(key, _)| *key == snapshot)
         .map_or_else(
             || {
                 let rows = Arc::new(
-                    applications
-                        .iter()
+                    inventory
+                        .rows(|application| application.id)
                         .map(|application| EntraApplicationRegistrationRow::new(application, now))
                         .collect(),
                 );
@@ -73,16 +70,22 @@ pub(crate) fn show_app_registrations(app: &mut MyApp, ui: &mut Ui) {
         ReflectedTableColumn::new("Created on", "created_on").with_width(102.0),
         ReflectedTableColumn::new("Certificates & secrets", "credential_status").with_width(158.0),
     ];
-    if let Some(target) = ReflectedTable::new(id, &columns)
-        .with_result_count()
-        .with_search_hint("Search app registrations")
-        .show_explorable(
-            ui,
-            rows.iter(),
-            |row| id.with(row.id),
-            &mut app.azure.checkboxes,
-        )
-    {
+    let table = ReflectedTable::new(id, &columns)
+        .with_status(progress.as_deref())
+        .with_search_hint("Search app registrations by name or ID");
+    let target = table.show_explorable_matching(
+        ui,
+        rows.iter(),
+        |row| id.with(row.id),
+        &mut app.azure.checkboxes,
+        |row, search| !app.egui_config.demo_mode && inventory.lookup_matched(search, row.id),
+    );
+    app.search_entra_directory(
+        PortalPage::EntraAppRegistrations,
+        &table.search_text(ui),
+        ui.ctx(),
+    );
+    if let Some(target) = target {
         target.apply(app);
     }
 }

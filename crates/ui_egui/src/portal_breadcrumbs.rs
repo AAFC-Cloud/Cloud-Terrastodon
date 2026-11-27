@@ -107,6 +107,12 @@ impl MyApp {
                                 PortalTabTarget::ScopeView { view, .. } => {
                                     Cow::Borrowed(view.label())
                                 }
+                                PortalTabTarget::EntraGroupSection { section, .. } => {
+                                    Cow::Borrowed(section.title())
+                                }
+                                PortalTabTarget::EntraUserSection { section, .. } => {
+                                    Cow::Borrowed(section.title())
+                                }
                                 PortalTabTarget::AzureDevOpsOrganization {
                                     view: PortalAzureDevOpsOrganizationView::Projects,
                                     ..

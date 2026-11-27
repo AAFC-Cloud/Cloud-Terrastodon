@@ -1,4 +1,5 @@
 use crate::app::MyApp;
+use crate::entra_user_subject::EntraUserSubject;
 use crate::icons::portal_target_icon_in;
 use crate::portal_azure_content::PortalAzureContent;
 use crate::portal_azure_devops_project_view::PortalAzureDevOpsProjectView;
@@ -427,6 +428,24 @@ impl MyApp {
             }
             _ => None,
         };
+        if let PortalTabTarget::EntraGroupSection { group_id, section } = target {
+            let name = azure.entra_directory.group_name(*group_id).filter(|name| {
+                !name.trim().is_empty() && (!self.egui_config.demo_mode || !name.contains('@'))
+            });
+            if let Some(name) = name {
+                return Cow::Owned(format!("{name} · {}", section.title()));
+            }
+        }
+        if let PortalTabTarget::EntraUserSection {
+            user: EntraUserSubject::Directory(id),
+            section,
+        } = target
+            && let Some(name) = azure.entra_directory.user_name(*id).filter(|name| {
+                !name.trim().is_empty() && (!self.egui_config.demo_mode || !name.contains('@'))
+            })
+        {
+            return Cow::Owned(format!("{name} · {}", section.title()));
+        }
         if let Some(name) = directory_name.filter(|name| {
             !name.trim().is_empty() && (!self.egui_config.demo_mode || !name.contains('@'))
         }) {

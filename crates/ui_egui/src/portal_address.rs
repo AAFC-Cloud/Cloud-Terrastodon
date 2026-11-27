@@ -1,4 +1,7 @@
 use crate::app::MyApp;
+use crate::entra_group_section::EntraGroupSection;
+use crate::entra_user_section::EntraUserSection;
+use crate::entra_user_subject::EntraUserSubject;
 use crate::portal_address_format::PortalAddressFormat;
 use crate::portal_azure_devops_organization_view::PortalAzureDevOpsOrganizationView;
 use crate::portal_omnibox::OMNIBOX_CONTENT_HEIGHT;
@@ -21,14 +24,25 @@ use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountAlias;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::EntraUserId;
 use cloud_terrastodon_azure::PercentEncodeExt;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure_cli::audit_cli::AzureAuditArgs;
 use cloud_terrastodon_azure_cli::entra::application_registration::AzureEntraApplicationRegistrationListArgs;
 use cloud_terrastodon_azure_cli::entra::application_registration::AzureEntraApplicationRegistrationShowArgs;
+use cloud_terrastodon_azure_cli::entra::group::AzureEntraGroupAuditLogArgs;
+use cloud_terrastodon_azure_cli::entra::group::AzureEntraGroupAzureRoleAssignmentsArgs;
 use cloud_terrastodon_azure_cli::entra::group::AzureEntraGroupListArgs;
+use cloud_terrastodon_azure_cli::entra::group::AzureEntraGroupOwnersArgs;
+use cloud_terrastodon_azure_cli::entra::group::AzureEntraGroupRoleAssignmentsArgs;
 use cloud_terrastodon_azure_cli::entra::group::AzureEntraGroupSearchArgs;
+use cloud_terrastodon_azure_cli::entra::group::member::AzureEntraGroupMemberListArgs;
+use cloud_terrastodon_azure_cli::entra::user::AzureEntraUserApplicationAssignmentsArgs;
+use cloud_terrastodon_azure_cli::entra::user::AzureEntraUserAzureRoleAssignmentsArgs;
 use cloud_terrastodon_azure_cli::entra::user::AzureEntraUserListArgs;
+use cloud_terrastodon_azure_cli::entra::user::AzureEntraUserMeArgs;
+use cloud_terrastodon_azure_cli::entra::user::AzureEntraUserOwnedApplicationsArgs;
+use cloud_terrastodon_azure_cli::entra::user::AzureEntraUserOwnedGroupsArgs;
 use cloud_terrastodon_azure_cli::entra::user::AzureEntraUserShowArgs;
 use cloud_terrastodon_azure_cli::resource::AzureResourceShowArgs;
 use cloud_terrastodon_azure_cli::storage::account::AzureStorageAccountAuditArgs;
@@ -36,6 +50,7 @@ use cloud_terrastodon_azure_cli::storage::blob::container::AzureStorageBlobConta
 use cloud_terrastodon_azure_cli::storage::blob::container::AzureStorageBlobContainerShowArgs;
 use cloud_terrastodon_azure_cli::tenant::AzureTenantShowArgs;
 use cloud_terrastodon_azure_devops_cli::AzureDevOpsAuditArgs;
+use cloud_terrastodon_azure_devops_cli::AzureDevOpsEntraPermissionsArgs;
 use cloud_terrastodon_azure_devops_cli::project::list::AzureDevOpsProjectListArgs;
 use cloud_terrastodon_cli_types::CloudTerrastodonAccountArgument;
 use eframe::egui::Align;
@@ -59,6 +74,7 @@ use eframe::egui::WidgetType;
 use eframe::egui::containers::menu::MenuButton;
 use eyre::Result;
 use figue::ToArgs;
+use std::borrow::Cow;
 use std::sync::Arc;
 
 /// The display address derived from a typed destination and execution identity.
@@ -198,6 +214,17 @@ impl PortalAddress {
                     no_cache: false,
                 },
             )?,
+            PortalTabTarget::Page(PortalPage::EntraMyUser)
+            | PortalTabTarget::EntraUserSection {
+                user: EntraUserSubject::SignedIn,
+                section: EntraUserSection::Overview,
+            } => format_cli_command(
+                "entra user me",
+                &AzureEntraUserMeArgs {
+                    authentication,
+                    no_cache: false,
+                },
+            )?,
             PortalTabTarget::EntraUser(id) => format_cli_command(
                 "entra user show",
                 &AzureEntraUserShowArgs {
@@ -206,11 +233,90 @@ impl PortalAddress {
                     no_cache: false,
                 },
             )?,
-            PortalTabTarget::EntraGroup(id) => format_cli_command(
+            PortalTabTarget::EntraUserSection {
+                user: EntraUserSubject::Directory(id),
+                section,
+            } => entra_user_section_command(authentication, *id, *section)?,
+            PortalTabTarget::EntraGroup(id)
+            | PortalTabTarget::EntraGroupSection {
+                group_id: id,
+                section: EntraGroupSection::Overview | EntraGroupSection::Properties,
+            } => format_cli_command(
                 "entra group search",
                 &AzureEntraGroupSearchArgs {
                     authentication,
                     search_term: id.to_string(),
+                    no_cache: false,
+                },
+            )?,
+            PortalTabTarget::EntraGroupSection {
+                group_id,
+                section: EntraGroupSection::Owners,
+            } => format_cli_command(
+                "entra group owners",
+                &AzureEntraGroupOwnersArgs {
+                    authentication,
+                    group_id: *group_id,
+                    no_cache: false,
+                },
+            )?,
+            PortalTabTarget::EntraGroupSection {
+                group_id,
+                section: EntraGroupSection::RoleAssignments,
+            } => format_cli_command(
+                "entra group role-assignments",
+                &AzureEntraGroupRoleAssignmentsArgs {
+                    authentication,
+                    group_id: *group_id,
+                    no_cache: false,
+                },
+            )?,
+            PortalTabTarget::EntraGroupSection {
+                group_id,
+                section: EntraGroupSection::AzureRoleAssignments,
+            } => format_cli_command(
+                "entra group azure-role-assignments",
+                &AzureEntraGroupAzureRoleAssignmentsArgs {
+                    authentication,
+                    group_id: *group_id,
+                    no_cache: false,
+                },
+            )?,
+            PortalTabTarget::EntraGroupSection {
+                group_id,
+                section: EntraGroupSection::AuditLog,
+            } => format_cli_command(
+                "entra group audit-log",
+                &AzureEntraGroupAuditLogArgs {
+                    authentication,
+                    group_id: *group_id,
+                    no_cache: false,
+                },
+            )?,
+            PortalTabTarget::EntraGroupSection {
+                group_id,
+                section: EntraGroupSection::Members,
+            } => format_cli_command(
+                "entra group member list",
+                &AzureEntraGroupMemberListArgs {
+                    authentication,
+                    group_id: *group_id,
+                    no_cache: false,
+                },
+            )?,
+            PortalTabTarget::EntraGroupSection {
+                group_id,
+                section: EntraGroupSection::AzureDevOpsPermissions,
+            } => format_cli_command(
+                "devops entra-permissions",
+                &AzureDevOpsEntraPermissionsArgs {
+                    user: None,
+                    group: Some(*group_id),
+                    org: Vec::new(),
+                    authentication: AzureAuthenticationArgs {
+                        tenant: authentication.tenant,
+                        ..Default::default()
+                    },
                     no_cache: false,
                 },
             )?,
@@ -274,8 +380,17 @@ impl PortalAddress {
             PortalTabTarget::Resource(id) => id.expanded_form(),
             PortalTabTarget::ResourceOutput { resource, .. } => resource.resource_id(),
             PortalTabTarget::ScopeView { scope, .. } => scope.arm_scope().expanded_form(),
-            PortalTabTarget::EntraUser(id) => id.to_string(),
+            PortalTabTarget::EntraUser(id)
+            | PortalTabTarget::EntraUserSection {
+                user: EntraUserSubject::Directory(id),
+                ..
+            } => id.to_string(),
+            PortalTabTarget::EntraUserSection {
+                user: EntraUserSubject::SignedIn,
+                ..
+            } => return None,
             PortalTabTarget::EntraGroup(id) => id.to_string(),
+            PortalTabTarget::EntraGroupSection { group_id, .. } => group_id.to_string(),
             PortalTabTarget::EntraAppRegistration(id) => id.to_string(),
             PortalTabTarget::AzureTenant(id) => id.to_string(),
             PortalTabTarget::ResourcesOfType(kind) => kind.to_string(),
@@ -554,6 +669,76 @@ fn format_cli_command(operation: &str, args: &impl ToArgs) -> Result<String> {
     format_shell_command(format!("ct az {operation}"), args)
 }
 
+fn entra_user_section_command(
+    authentication: AzureAuthenticationArgs,
+    user_id: EntraUserId,
+    section: EntraUserSection,
+) -> Result<String> {
+    match section {
+        EntraUserSection::Overview => format_cli_command(
+            "entra user show",
+            &AzureEntraUserShowArgs {
+                authentication,
+                user: user_id.into(),
+                no_cache: false,
+            },
+        ),
+        EntraUserSection::GroupMemberships => format_cli_command(
+            "entra group list",
+            &AzureEntraGroupListArgs {
+                authentication,
+                for_member: Some(user_id.into()),
+                no_cache: false,
+            },
+        ),
+        EntraUserSection::GroupOwnerships => format_cli_command(
+            "entra user owned-groups",
+            &AzureEntraUserOwnedGroupsArgs {
+                authentication,
+                user_id,
+                no_cache: false,
+            },
+        ),
+        EntraUserSection::ApplicationOwnership => format_cli_command(
+            "entra user owned-applications",
+            &AzureEntraUserOwnedApplicationsArgs {
+                authentication,
+                user_id,
+                no_cache: false,
+            },
+        ),
+        EntraUserSection::ApplicationAssignments => format_cli_command(
+            "entra user application-assignments",
+            &AzureEntraUserApplicationAssignmentsArgs {
+                authentication,
+                user_id,
+                no_cache: false,
+            },
+        ),
+        EntraUserSection::AzureRoleAssignments => format_cli_command(
+            "entra user azure-role-assignments",
+            &AzureEntraUserAzureRoleAssignmentsArgs {
+                authentication,
+                user_id,
+                no_cache: false,
+            },
+        ),
+        EntraUserSection::AzureDevOpsPermissions => format_cli_command(
+            "devops entra-permissions",
+            &AzureDevOpsEntraPermissionsArgs {
+                user: Some(user_id),
+                group: None,
+                org: Vec::new(),
+                authentication: AzureAuthenticationArgs {
+                    tenant: authentication.tenant,
+                    ..Default::default()
+                },
+                no_cache: false,
+            },
+        ),
+    }
+}
+
 fn resource_show_command(
     authentication: AzureAuthenticationArgs,
     resource: String,
@@ -616,6 +801,17 @@ impl MyApp {
         target: &PortalTabTarget,
         focus_search: bool,
     ) -> bool {
+        let resolved_target = match target {
+            PortalTabTarget::EntraUserSection {
+                user: user @ EntraUserSubject::SignedIn,
+                section,
+            } if *section != EntraUserSection::Overview => user
+                .user_id(&self.azure.entra_directory)
+                .map(|id| section.target(EntraUserSubject::Directory(id)))
+                .map_or(Cow::Borrowed(target), Cow::Owned),
+            _ => Cow::Borrowed(target),
+        };
+        let target = resolved_target.as_ref();
         if *target == PortalTabTarget::Page(PortalPage::Accounts) {
             return PortalAddress {
                 target: target.clone(),
@@ -1053,6 +1249,34 @@ mod tests {
                 PortalAddress::azure_portal_url(&target, Some(authentication.tenant_id)).is_none()
             );
         }
+        Ok(())
+    }
+
+    #[test]
+    fn directory_permission_scan_address_uses_the_tenant_default_account() -> Result<()> {
+        let user_id = "00000000-0000-0000-0000-000000000001";
+        let account_id = "00000000-0000-0000-0000-000000000002";
+        let tenant_id = "00000000-0000-0000-0000-000000000003";
+        let authentication = AzureBearerAuthenticationSelection {
+            account_id: account_id.parse()?,
+            tenant_id: tenant_id.parse()?,
+            auth_source: AzureBearerAuthSource::AzureCli,
+        };
+        let target = EntraUserSection::AzureDevOpsPermissions
+            .target(EntraUserSubject::Directory(user_id.parse()?));
+        let command = PortalAddress::cli_command(&target, Some(authentication), None)?.unwrap();
+        let flags = command
+            .strip_prefix("ct az devops entra-permissions ")
+            .unwrap();
+        assert!(command.contains(&format!("--user {user_id}")));
+        assert!(command.contains(&format!("--tenant {tenant_id}")));
+        assert!(!command.contains("--account"));
+        let args = flags.split_whitespace().collect::<Vec<_>>();
+        let parsed = figue::from_slice::<AzureDevOpsEntraPermissionsArgs>(&args)
+            .into_result()
+            .expect("the generated permission scan command should parse")
+            .get();
+        assert_eq!(parsed.user, Some(user_id.parse()?));
         Ok(())
     }
 }

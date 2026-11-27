@@ -113,10 +113,13 @@ impl MyApp {
                 PortalPage::Entra
                 | PortalPage::EntraUsers
                 | PortalPage::EntraGroups
-                | PortalPage::EntraAppRegistrations,
+                | PortalPage::EntraAppRegistrations
+                | PortalPage::EntraMyUser,
             )
             | PortalTabTarget::EntraUser(_)
+            | PortalTabTarget::EntraUserSection { .. }
             | PortalTabTarget::EntraGroup(_)
+            | PortalTabTarget::EntraGroupSection { .. }
             | PortalTabTarget::EntraAppRegistration(_) => show_entra_directory(self, ui, &target),
             PortalTabTarget::ResourceGroup(id) => {
                 scope_detail_ui(self, ui, &PortalResourceScope::ResourceGroup(id), None)

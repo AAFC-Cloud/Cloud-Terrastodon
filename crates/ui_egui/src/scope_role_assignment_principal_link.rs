@@ -6,7 +6,7 @@ use cloud_terrastodon_azure::ScopeImpl;
 use facet::Facet;
 
 /// Identity that opens the principal's directory page or its managed resource.
-#[derive(Facet)]
+#[derive(Debug, Facet)]
 #[repr(C)]
 pub(crate) enum ScopeRoleAssignmentPrincipalLink {
     User(EntraUserId),

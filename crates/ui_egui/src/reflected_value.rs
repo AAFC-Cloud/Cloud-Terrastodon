@@ -11,6 +11,7 @@ use cloud_terrastodon_azure::AzureStorageAccountId;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::EntraApplicationClientId;
 use cloud_terrastodon_azure::EntraApplicationObjectId;
+use cloud_terrastodon_azure::EntraDirectoryAuditResult;
 use cloud_terrastodon_azure::EntraGroupId;
 use cloud_terrastodon_azure::EntraUserId;
 use cloud_terrastodon_azure::ManagementGroupId;
@@ -27,6 +28,7 @@ use facet::Def;
 use facet::Facet;
 use facet_reflect::Peek;
 use facet_reflect::PeekStruct;
+use jiff::Timestamp;
 
 /// A read-only view of a Facet value for inventory columns and object details.
 #[derive(Clone, Copy)]
@@ -69,6 +71,11 @@ impl<'a> ReflectedValue<'a> {
             .or_else(|| value.get::<i32>().map(|&number| i128::from(number)))
             .or_else(|| {
                 value
+                    .get::<Timestamp>()
+                    .map(|timestamp| timestamp.as_nanosecond())
+            })
+            .or_else(|| {
+                value
                     .get::<AzureDevOpsWorkItemId>()
                     .map(|id| i128::from(id.get()))
             });
@@ -90,6 +97,9 @@ impl<'a> ReflectedValue<'a> {
         for _ in 0..8 {
             if let Some(level) = value.get::<AzureActivityLogEventLevel>() {
                 return Some(level.as_str().to_owned());
+            }
+            if let Some(result) = value.get::<EntraDirectoryAuditResult>() {
+                return Some(result.as_str().to_owned());
             }
             if let Some(location) = value.get::<AzureLocationName>() {
                 return Some(location.to_string());
@@ -135,6 +145,9 @@ impl<'a> ReflectedValue<'a> {
             }
             if let Some(status) = value.get::<AzureDevOpsBuildDefinitionQueueStatus>() {
                 return Some(status.to_string());
+            }
+            if let Some(timestamp) = value.get::<Timestamp>() {
+                return Some(timestamp.to_string());
             }
             if matches!(value.0.shape().def, Def::Scalar) && value.0.shape().vtable.has_display() {
                 return Some(value.0.to_string());

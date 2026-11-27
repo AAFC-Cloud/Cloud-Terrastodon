@@ -38,6 +38,7 @@ pub enum PortalPage {
     Pim,
     PimEntraRoles,
     PimAzureResources,
+    EntraMyUser,
 }
 
 impl PortalPage {
@@ -55,6 +56,7 @@ impl PortalPage {
             Self::EntraUsers => "Users",
             Self::EntraGroups => "Groups",
             Self::EntraAppRegistrations => "App registrations",
+            Self::EntraMyUser => "My User",
             Self::AzureDevOpsOrganizations => "DevOps organizations",
             Self::Accounts => "Accounts",
             Self::AzureTenants => "Azure tenants",
@@ -79,7 +81,11 @@ impl PortalPage {
     pub(crate) fn is_entra(self) -> bool {
         matches!(
             self,
-            Self::Entra | Self::EntraUsers | Self::EntraGroups | Self::EntraAppRegistrations
+            Self::Entra
+                | Self::EntraUsers
+                | Self::EntraGroups
+                | Self::EntraAppRegistrations
+                | Self::EntraMyUser
         )
     }
 

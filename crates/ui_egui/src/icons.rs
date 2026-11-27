@@ -98,6 +98,8 @@ pub(crate) fn portal_target_icon_in(
                 | PortalAzureDevOpsOrganizationView::Project(_),
             ..
         } => DEVOPS_PROJECT_ICON,
+        PortalTabTarget::EntraGroupSection { section, .. } => section.icon(),
+        PortalTabTarget::EntraUserSection { section, .. } => section.icon(),
         target => page_icon(target.page()),
     }
 }
@@ -117,7 +119,7 @@ pub fn page_icon(page: PortalPage) -> ImageSource<'static> {
         PortalPage::ContainerRegistries => svg_source(&AzureContainerRegistryIcon),
         PortalPage::KeyVaults => svg_source(&AzureKeyVaultIcon),
         PortalPage::Entra | PortalPage::PimEntraRoles => i!("../assets/entra-directory.svg"),
-        PortalPage::EntraUsers => i!("../assets/entra-user.svg"),
+        PortalPage::EntraUsers | PortalPage::EntraMyUser => i!("../assets/entra-user.svg"),
         PortalPage::EntraGroups => i!("../assets/entra-group.svg"),
         PortalPage::EntraAppRegistrations => i!("../assets/entra-app-registrations.svg"),
         PortalPage::AzureDevOpsOrganizations => DEVOPS_ICON,

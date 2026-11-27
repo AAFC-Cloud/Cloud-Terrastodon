@@ -203,9 +203,19 @@ fn hierarchy_from_ancestors(
             target,
             PortalTabTarget::EntraUser(_)
                 | PortalTabTarget::EntraGroup(_)
+                | PortalTabTarget::EntraGroupSection { .. }
                 | PortalTabTarget::EntraAppRegistration(_)
         ) {
             hierarchy.push(PortalTabTarget::Page(target.page()));
+        }
+        if let PortalTabTarget::EntraGroupSection { group_id, .. } = target {
+            hierarchy.push(PortalTabTarget::EntraGroup(*group_id));
+        }
+        if let PortalTabTarget::EntraUserSection { user, .. } = target {
+            if target.page() == PortalPage::EntraUsers {
+                hierarchy.push(PortalTabTarget::Page(PortalPage::EntraUsers));
+            }
+            hierarchy.push(user.overview());
         }
         hierarchy.push(target.clone());
         return hierarchy;
@@ -300,6 +310,57 @@ mod tests {
                 .into_iter()
                 .chain([project, repositories])
                 .collect::<Vec<_>>()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn entra_group_section_keeps_the_group_overview_as_its_parent() -> eyre::Result<()> {
+        use crate::entra_group_section::EntraGroupSection;
+
+        let id = "00000000-0000-0000-0000-000000000001".parse()?;
+        let members = EntraGroupSection::Members.target(id);
+        assert_eq!(
+            hierarchy_from_ancestors(&members, &[]),
+            [
+                PortalTabTarget::Page(PortalPage::Home),
+                PortalTabTarget::Page(PortalPage::Entra),
+                PortalTabTarget::Page(PortalPage::EntraGroups),
+                PortalTabTarget::EntraGroup(id),
+                members,
+            ],
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn entra_user_section_keeps_its_own_user_overview_as_parent() -> eyre::Result<()> {
+        use crate::entra_user_section::EntraUserSection;
+        use crate::entra_user_subject::EntraUserSubject;
+
+        let id = "00000000-0000-0000-0000-000000000001".parse()?;
+        let user = EntraUserSubject::Directory(id);
+        let memberships = EntraUserSection::GroupMemberships.target(user);
+        assert_eq!(
+            hierarchy_from_ancestors(&memberships, &[]),
+            [
+                PortalTabTarget::Page(PortalPage::Home),
+                PortalTabTarget::Page(PortalPage::Entra),
+                PortalTabTarget::Page(PortalPage::EntraUsers),
+                user.overview(),
+                memberships,
+            ],
+        );
+        let my_user = EntraUserSubject::SignedIn;
+        let ownership = EntraUserSection::ApplicationOwnership.target(my_user);
+        assert_eq!(
+            hierarchy_from_ancestors(&ownership, &[]),
+            [
+                PortalTabTarget::Page(PortalPage::Home),
+                PortalTabTarget::Page(PortalPage::Entra),
+                my_user.overview(),
+                ownership,
+            ],
         );
         Ok(())
     }

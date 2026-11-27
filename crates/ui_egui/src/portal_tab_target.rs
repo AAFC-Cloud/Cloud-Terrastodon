@@ -1,3 +1,6 @@
+use crate::entra_group_section::EntraGroupSection;
+use crate::entra_user_section::EntraUserSection;
+use crate::entra_user_subject::EntraUserSubject;
 use crate::portal_azure_devops_organization_view::PortalAzureDevOpsOrganizationView;
 use crate::portal_azure_devops_project_view::PortalAzureDevOpsProjectView;
 use crate::portal_page::PortalPage;
@@ -58,6 +61,14 @@ pub enum PortalTabTarget {
         project: AzureDevOpsProjectId,
         view: PortalAzureDevOpsProjectView,
     },
+    EntraGroupSection {
+        group_id: EntraGroupId,
+        section: EntraGroupSection,
+    },
+    EntraUserSection {
+        user: EntraUserSubject,
+        section: EntraUserSection,
+    },
 }
 
 impl PortalTabTarget {
@@ -116,8 +127,14 @@ impl PortalTabTarget {
                 }
             }
             Self::EntraUser(id) => Cow::Owned(format!("User {id}")),
+            Self::EntraUserSection { user, section } => {
+                Cow::Owned(format!("{} · {}", user.overview().title(), section.title()))
+            }
             Self::AzureTenant(id) => Cow::Owned(id.to_string()),
             Self::EntraGroup(id) => Cow::Owned(format!("Group {id}")),
+            Self::EntraGroupSection { group_id, section } => {
+                Cow::Owned(format!("Group {group_id} · {}", section.title()))
+            }
             Self::EntraAppRegistration(id) => Cow::Owned(format!("App registration {id}")),
             Self::Resource(id) => {
                 let full = id.expanded_form();
@@ -150,8 +167,9 @@ impl PortalTabTarget {
             Self::StorageAccount(_) | Self::StorageContainer(_) => PortalPage::StorageAccounts,
             Self::Resource(_) => PortalPage::Resources,
             Self::EntraUser(_) => PortalPage::EntraUsers,
+            Self::EntraUserSection { user, .. } => user.page(),
             Self::AzureTenant(_) => PortalPage::AzureTenants,
-            Self::EntraGroup(_) => PortalPage::EntraGroups,
+            Self::EntraGroup(_) | Self::EntraGroupSection { .. } => PortalPage::EntraGroups,
             Self::EntraAppRegistration(_) => PortalPage::EntraAppRegistrations,
             Self::AzureDevOpsOrganization { .. } | Self::AzureDevOpsProject { .. } => {
                 PortalPage::AzureDevOpsOrganizations

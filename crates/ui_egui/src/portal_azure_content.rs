@@ -1,5 +1,10 @@
 use crate::azure_devops_project_inventory::AzureDevOpsProjectInventory;
+use crate::entra_devops_permissions::EntraDevOpsPermissionOrganization;
 use crate::entra_directory::EntraDirectory;
+use crate::entra_group_data::EntraGroupData;
+use crate::entra_user_application_data::EntraUserApplicationData;
+use crate::entra_user_groups::EntraUserGroups;
+use crate::entra_user_permissions::EntraUserPermissions;
 use crate::pim_activation::PimActivation;
 use crate::pim_role_inventory::PimRoleInventory;
 use crate::portal_pane_id::PortalPaneId;
@@ -16,6 +21,7 @@ use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_azure::AzureNetworkSecurityGroup;
 use cloud_terrastodon_azure::AzureResourceGroupMap;
+use cloud_terrastodon_azure::EntraGroupId;
 use cloud_terrastodon_azure::ManagementGroup;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::ResourceId;
@@ -57,6 +63,12 @@ pub(crate) struct PortalAzureContent {
     pub scope_iam: ScopeIamBrowser,
     pub scope_tags: ScopeTagsBrowser,
     pub entra_directory: EntraDirectory,
+    pub entra_user_groups: EntraUserGroups,
+    pub entra_user_applications: EntraUserApplicationData,
+    pub entra_user_permissions: EntraUserPermissions,
+    pub entra_group_data: EntraGroupData,
+    pub entra_group_devops_permissions:
+        HashMap<EntraGroupId, Loadable<Vec<EntraDevOpsPermissionOrganization>>>,
     pub pim_roles: PimRoleInventory,
     pub pim_activation: Option<PimActivation>,
     pub audit_results: HashMap<Id, Arc<dyn Any + Send + Sync>>,
@@ -93,6 +105,14 @@ impl PortalAzureContent {
             || self.storage_account_browser.is_loading()
             || self.storage_explorer.is_loading()
             || self.entra_directory.is_loading()
+            || self.entra_user_groups.is_loading()
+            || self.entra_user_applications.is_loading()
+            || self.entra_user_permissions.is_loading()
+            || self.entra_group_data.is_loading()
+            || self
+                .entra_group_devops_permissions
+                .values()
+                .any(|result| matches!(result, Loadable::Loading { .. }))
             || self.pim_roles.is_loading()
             || self
                 .pim_activation

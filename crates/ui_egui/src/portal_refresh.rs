@@ -1,5 +1,8 @@
 use crate::app::MyApp;
 use crate::azure_account_picker_action::AzureAccountPickerAction;
+use crate::entra_group_section::EntraGroupSection;
+use crate::entra_user_section::EntraUserSection;
+use crate::entra_user_subject::EntraUserSubject;
 use crate::portal_azure_content::PortalAzureContent;
 use crate::portal_azure_devops_organization_view::PortalAzureDevOpsOrganizationView;
 use crate::portal_page::PortalPage;
@@ -40,6 +43,56 @@ impl MyApp {
             .is_some();
         match target {
             PortalTabTarget::Page(PortalPage::Entra) => false,
+            PortalTabTarget::Page(PortalPage::EntraMyUser) => {
+                has_azure_account
+                    && content.authentication.is_some_and(|authentication| {
+                        authentication.auth_source != AzureBearerAuthSource::WorkloadIdentity
+                    })
+                    && content.entra_directory.can_refresh(target)
+            }
+            PortalTabTarget::EntraGroupSection { group_id, section } => {
+                has_azure_account
+                    && match section {
+                        EntraGroupSection::Overview | EntraGroupSection::Properties => content
+                            .entra_directory
+                            .can_refresh(&PortalTabTarget::EntraGroup(*group_id)),
+                        EntraGroupSection::AzureDevOpsPermissions => !matches!(
+                            content.entra_group_devops_permissions.get(group_id),
+                            Some(Loadable::Loading { .. })
+                        ),
+                        _ => content.entra_group_data.can_refresh(*group_id, *section),
+                    }
+            }
+            PortalTabTarget::EntraUserSection { user, section } => {
+                has_azure_account
+                    && (*user != EntraUserSubject::SignedIn
+                        || content.authentication.is_some_and(|authentication| {
+                            authentication.auth_source != AzureBearerAuthSource::WorkloadIdentity
+                        }))
+                    && match (section, user.user_id(&content.entra_directory)) {
+                        (EntraUserSection::Overview, _) | (_, None) => {
+                            content.entra_directory.can_refresh(&user.overview())
+                        }
+                        (EntraUserSection::GroupMemberships, Some(id)) => {
+                            content.entra_user_groups.can_refresh_memberships(id)
+                        }
+                        (EntraUserSection::GroupOwnerships, Some(id)) => {
+                            content.entra_user_groups.can_refresh_ownerships(id)
+                        }
+                        (EntraUserSection::ApplicationOwnership, Some(id)) => {
+                            content.entra_user_applications.can_refresh_ownership(id)
+                        }
+                        (EntraUserSection::ApplicationAssignments, Some(id)) => {
+                            content.entra_user_applications.can_refresh_assignments(id)
+                        }
+                        (EntraUserSection::AzureRoleAssignments, Some(id)) => {
+                            content.entra_user_permissions.can_refresh_azure_roles(id)
+                        }
+                        (EntraUserSection::AzureDevOpsPermissions, Some(id)) => content
+                            .entra_user_permissions
+                            .can_refresh_devops_permissions(id),
+                    }
+            }
             PortalTabTarget::Page(PortalPage::Pim) => false,
             PortalTabTarget::Page(
                 page @ (PortalPage::PimEntraRoles | PortalPage::PimAzureResources),
@@ -215,6 +268,43 @@ impl MyApp {
         }
         match target {
             PortalTabTarget::Page(PortalPage::Entra) => {}
+            PortalTabTarget::Page(PortalPage::EntraMyUser) => {
+                self.load_entra_directory(target, true)
+            }
+            PortalTabTarget::EntraGroupSection { group_id, section } => match section {
+                EntraGroupSection::Overview | EntraGroupSection::Properties => {
+                    self.load_entra_directory(&PortalTabTarget::EntraGroup(*group_id), true);
+                }
+                EntraGroupSection::AzureDevOpsPermissions => {
+                    self.load_entra_group_devops_permissions(*group_id, true);
+                }
+                _ => self.load_entra_group_section(*group_id, *section, true),
+            },
+            PortalTabTarget::EntraUserSection { user, section } => {
+                match (section, user.user_id(&self.azure.entra_directory)) {
+                    (EntraUserSection::Overview, _) | (_, None) => {
+                        self.load_entra_directory(&user.overview(), true);
+                    }
+                    (EntraUserSection::GroupMemberships, Some(id)) => {
+                        self.load_entra_user_group_memberships(id, true);
+                    }
+                    (EntraUserSection::GroupOwnerships, Some(id)) => {
+                        self.load_entra_user_group_ownerships(id, true);
+                    }
+                    (EntraUserSection::ApplicationOwnership, Some(id)) => {
+                        self.load_entra_user_application_ownership(id, true);
+                    }
+                    (EntraUserSection::ApplicationAssignments, Some(id)) => {
+                        self.load_entra_user_application_assignments(id, true);
+                    }
+                    (EntraUserSection::AzureRoleAssignments, Some(id)) => {
+                        self.load_entra_user_azure_roles(id, true);
+                    }
+                    (EntraUserSection::AzureDevOpsPermissions, Some(id)) => {
+                        self.load_entra_user_devops_permissions(id, true);
+                    }
+                }
+            }
             PortalTabTarget::Page(PortalPage::Pim) => {}
             PortalTabTarget::Page(
                 page @ (PortalPage::PimEntraRoles | PortalPage::PimAzureResources),
