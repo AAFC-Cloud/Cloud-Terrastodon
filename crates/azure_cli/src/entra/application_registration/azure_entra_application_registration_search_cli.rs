@@ -7,15 +7,23 @@ use eyre::Result;
 use facet::Facet;
 use tracing::info;
 
-/// Search Entra (Azure AD) application registrations by app id, name, or URI prefix.
+/// Search Entra application registrations by object ID, client ID, or display-name tokens.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureEntraApplicationRegistrationSearchArgs {
     #[facet(flatten)]
     pub authentication: AzureAuthenticationArgs,
 
-    /// Search text. Graph filters application identifiers and names server-side.
+    /// An application object or client ID, or display-name search text.
     #[facet(figue::positional)]
     pub search_term: String,
+
+    /// Match the full display name. UUID searches match the object or client ID.
+    #[facet(figue::named, default)]
+    pub exact_display_name: bool,
+
+    /// Fetch fresh search results.
+    #[facet(figue::named, default)]
+    pub no_cache: bool,
 }
 
 impl AzureEntraApplicationRegistrationSearchArgs {
@@ -23,10 +31,12 @@ impl AzureEntraApplicationRegistrationSearchArgs {
         let authentication = self.authentication.resolve(executor).await?;
         info!(tenant_id = %authentication.tenant_id, search_term = %self.search_term, "Searching application registrations");
         let applications = EntraApplicationRegistrationSearchRequest {
+            exact_display_name: self.exact_display_name,
             search_term: (self.search_term),
             authentication,
         }
         .execute(executor)
+        .with_invalidation(self.no_cache)
         .await?;
 
         Ok(CliOutput::facet(applications))

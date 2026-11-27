@@ -1,3 +1,6 @@
+use super::AzureEntraServicePrincipalAppRoleAssignmentsArgs;
+use super::AzureEntraServicePrincipalAppRoleCatalogueArgs;
+use super::AzureEntraServicePrincipalDelegatedGrantsArgs;
 use super::AzureEntraSpBrowseArgs;
 use super::AzureEntraSpListArgs;
 use super::AzureEntraSpShowArgs;
@@ -16,6 +19,12 @@ pub enum AzureEntraSpCommand {
     Show(AzureEntraSpShowArgs),
     /// Browse service principals interactively.
     Browse(AzureEntraSpBrowseArgs),
+    /// List app-only permissions granted to a service principal.
+    AppRoleAssignments(AzureEntraServicePrincipalAppRoleAssignmentsArgs),
+    /// Show the application roles exposed by a service principal.
+    AppRoleCatalogue(AzureEntraServicePrincipalAppRoleCatalogueArgs),
+    /// List OAuth2 delegated permissions granted to a service principal.
+    DelegatedGrants(AzureEntraServicePrincipalDelegatedGrantsArgs),
 }
 
 impl AzureEntraSpCommand {
@@ -24,6 +33,9 @@ impl AzureEntraSpCommand {
             AzureEntraSpCommand::List(args) => Box::pin(args.invoke(executor)).await,
             AzureEntraSpCommand::Show(args) => Box::pin(args.invoke(executor)).await,
             AzureEntraSpCommand::Browse(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraSpCommand::AppRoleAssignments(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraSpCommand::AppRoleCatalogue(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraSpCommand::DelegatedGrants(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

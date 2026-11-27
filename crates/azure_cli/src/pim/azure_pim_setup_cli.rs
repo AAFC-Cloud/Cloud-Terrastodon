@@ -168,6 +168,7 @@ async fn find_pim_application(
     executor: &CloudTerrastodonExecutor,
 ) -> Result<Arc<EntraApplicationRegistration>> {
     let applications = EntraApplicationRegistrationSearchRequest {
+        exact_display_name: true,
         search_term: (PIM_APPLICATION_DISPLAY_NAME).into(),
         authentication,
     }

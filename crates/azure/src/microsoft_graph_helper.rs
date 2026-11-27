@@ -11,6 +11,7 @@ use eyre::Result;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
+use url::Url;
 /// Fetch a resource or all pages of a [Microsoft Graph collection](https://learn.microsoft.com/graph/paging).
 pub struct MicrosoftGraphHelper {
     pub url: String,
@@ -43,6 +44,23 @@ impl MicrosoftGraphHelper {
     pub fn with_consistency_level_eventual(self) -> Result<Self> {
         let consistency_level = RequestHeaders::from_header("ConsistencyLevel", "eventual")?;
         Ok(self.add_headers(consistency_level))
+    }
+
+    /// Configure a [tokenized display-name query](https://learn.microsoft.com/graph/search-query-parameter#use-search-on-directory-object-collections).
+    pub(crate) fn for_display_name_search(
+        mut url: Url,
+        search_term: &str,
+        cache_key: Option<CacheKey>,
+        authentication: AzureBearerAuthenticationSelection,
+    ) -> Result<Self> {
+        let escaped = search_term.replace('\\', "\\\\").replace('"', "\\\"");
+        url.query_pairs_mut()
+            .append_pair("$search", &format!(r#""displayName:{escaped}""#));
+        // The v1.0 search preference lets Graph handle percent-encoded ampersands.
+        // https://learn.microsoft.com/graph/known-issues#search-for-directory-objects-fails-for-encoded-ampersand--character
+        Ok(Self::new(url, cache_key, authentication)
+            .with_consistency_level_eventual()?
+            .add_headers(RequestHeaders::from_header("Prefer", "legacySearch=false")?))
     }
 
     fn get_request(&self, url: &str) -> Result<RestRequest> {

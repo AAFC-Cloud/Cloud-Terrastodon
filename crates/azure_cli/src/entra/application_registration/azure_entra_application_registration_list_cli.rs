@@ -12,6 +12,10 @@ use tracing::info;
 pub struct AzureEntraApplicationRegistrationListArgs {
     #[facet(flatten)]
     pub authentication: AzureAuthenticationArgs,
+
+    /// Refresh the cached application registration list.
+    #[facet(figue::named, default)]
+    pub no_cache: bool,
 }
 
 impl AzureEntraApplicationRegistrationListArgs {
@@ -20,6 +24,7 @@ impl AzureEntraApplicationRegistrationListArgs {
         info!(tenant_id = %authentication.tenant_id, "Fetching application registrations");
         let applications = EntraApplicationRegistrationListRequest { authentication }
             .execute(executor)
+            .with_invalidation(self.no_cache)
             .await?;
 
         Ok(CliOutput::facet(applications))

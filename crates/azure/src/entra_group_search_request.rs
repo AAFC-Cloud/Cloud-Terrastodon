@@ -10,7 +10,6 @@ use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_rest::RequestHeaders;
 use facet::Facet;
 use std::sync::Arc;
 use std::time::Duration;
@@ -75,16 +74,12 @@ impl ExecutableRequest for EntraGroupSearchRequest {
                         .append_pair("$filter", &format!("id eq '{id}'"));
                     MicrosoftGraphHelper::new(url, cache_key, self.authentication)
                 }
-                Err(_) => {
-                    let escaped = search_term.replace('\\', "\\\\").replace('"', "\\\"");
-                    url.query_pairs_mut()
-                        .append_pair("$search", &format!(r#""displayName:{escaped}""#));
-                    // Microsoft Graph's v1.0 search needs this preference to handle encoded ampersands.
-                    // https://learn.microsoft.com/graph/known-issues#search-for-directory-objects-fails-for-encoded-ampersand--character
-                    MicrosoftGraphHelper::new(url, cache_key, self.authentication)
-                        .with_consistency_level_eventual()?
-                        .add_headers(RequestHeaders::from_header("Prefer", "legacySearch=false")?)
-                }
+                Err(_) => MicrosoftGraphHelper::for_display_name_search(
+                    url,
+                    search_term,
+                    cache_key,
+                    self.authentication,
+                )?,
             };
             graph.fetch_all(&executor).await
         })

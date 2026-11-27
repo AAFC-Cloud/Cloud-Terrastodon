@@ -190,7 +190,10 @@ impl PortalAddress {
             )?,
             PortalTabTarget::Page(PortalPage::EntraAppRegistrations) => format_cli_command(
                 "entra application-registration list",
-                &AzureEntraApplicationRegistrationListArgs { authentication },
+                &AzureEntraApplicationRegistrationListArgs {
+                    authentication,
+                    no_cache: false,
+                },
             )?,
             PortalTabTarget::EntraUser(id) => format_cli_command(
                 "entra user show",
@@ -212,6 +215,7 @@ impl PortalAddress {
                 &AzureEntraApplicationRegistrationShowArgs {
                     authentication,
                     application_registration: id.to_string(),
+                    no_cache: false,
                 },
             )?,
             PortalTabTarget::ScopeView {

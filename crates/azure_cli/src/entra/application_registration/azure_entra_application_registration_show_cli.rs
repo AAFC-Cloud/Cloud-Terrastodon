@@ -20,6 +20,10 @@ pub struct AzureEntraApplicationRegistrationShowArgs {
     /// Application registration object id, app id, display name, identifier URI, or unique name.
     #[facet(figue::positional)]
     pub application_registration: String,
+
+    /// Fetch fresh application registration data.
+    #[facet(figue::named, default)]
+    pub no_cache: bool,
 }
 
 impl AzureEntraApplicationRegistrationShowArgs {
@@ -34,6 +38,7 @@ impl AzureEntraApplicationRegistrationShowArgs {
                 authentication,
             })
             .execute(executor)
+            .with_invalidation(self.no_cache)
             .await
             {
                 Ok(application) => {
@@ -50,6 +55,7 @@ impl AzureEntraApplicationRegistrationShowArgs {
 
         let applications = EntraApplicationRegistrationListRequest { authentication }
             .execute(executor)
+            .with_invalidation(self.no_cache)
             .await?;
         info!(
             count = applications.len(),
